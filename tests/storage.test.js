@@ -50,6 +50,14 @@ describe('records', () => {
     expect(createStorage(m).loadRecords().runs).toEqual([]);
   });
 
+  it('keeps the in-memory history when storage throws', () => {
+    const st = createStorage(broken);
+    const first = st.saveRun(run({ monthsSurvived: 6 }));
+    const second = st.saveRun(run({ monthsSurvived: 9 }), first);
+    expect(second.runs).toHaveLength(2);
+    expect(second.bestMonths).toBe(9);
+  });
+
   it('survives a storage that throws', () => {
     const st = createStorage(broken);
     expect(() => st.saveRun(run())).not.toThrow();

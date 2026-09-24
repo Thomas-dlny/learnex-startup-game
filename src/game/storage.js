@@ -38,8 +38,9 @@ export function createStorage(storage = defaultStorage()) {
     return r && Array.isArray(r.runs) ? { ...emptyRecords(), ...r } : emptyRecords();
   }
 
-  function saveRun(summary) {
-    const r = loadRecords();
+  // `base` : records déjà en mémoire. Si le stockage est bloqué, l'historique survit quand même.
+  function saveRun(summary, base = loadRecords()) {
+    const r = structuredClone(base);
     r.runs = [...r.runs, { ...summary, date: new Date().toISOString() }].slice(-MAX_RUNS);
     r.totalRuns += 1;
     r.bestMonths = Math.max(r.bestMonths ?? 0, summary.monthsSurvived);

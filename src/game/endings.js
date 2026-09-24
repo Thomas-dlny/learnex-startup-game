@@ -2,6 +2,7 @@
 // Les textes sont ici pour rester modifiables sans toucher aux composants.
 
 import { CONFIG } from './config.js';
+import { eur } from './format.js';
 
 export const ENDINGS = {
   exit: { kicker: 'EXIT', title: 'Ta startup est rachetée', positive: true, rare: true },
@@ -25,7 +26,6 @@ export const PROFILES = {
   balanced: { name: "L'Équilibriste", line: 'Un peu de tout, avec mesure.' },
 };
 
-const eur = (n) => `${Math.round(n).toLocaleString('fr-FR').replace(/ | /g, ' ')} €`;
 
 // Fin évaluée au terme des 18 mois
 export function evaluateFinal(s) {
