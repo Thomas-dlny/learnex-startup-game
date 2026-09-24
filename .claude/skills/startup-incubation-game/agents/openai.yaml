@@ -1,0 +1,13 @@
+interface:
+  display_name: Startup Incubation Game
+  short_description: Design and build the EDHEC Entrepreneurs Learnex startup game
+  brand_color: '#D6A84B'
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
