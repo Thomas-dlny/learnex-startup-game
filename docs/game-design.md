@@ -59,8 +59,8 @@ Dérivés :
 C'est ce qui donne au PMF un rôle concret, sans cours théorique.
 
 **Croissance organique**
-nouveaux clients = PMF / 20 x multiplicateur commercial x multiplicateur marché (arrondi aléatoire).
-PMF 15 : 0,75 client/mois. PMF 50 : 2,5 clients/mois.
+nouveaux clients = PMF / 18 x multiplicateur commercial x multiplicateur marché (arrondi aléatoire).
+PMF 15 : 0,8 client/mois. PMF 54 : 3 clients/mois.
 
 **Multiplicateur commercial**
 1 + 0,8 par commercial si PMF >= 35, sinon 1 + 0,3 par commercial.
@@ -74,8 +74,8 @@ Leçon : la pub remplit le seau, le PMF bouche les trous.
 +1 PMF par mois et par dev (vitesse produit).
 
 **Charge de l'équipe**
-capacité = 8 clients par personne (2 fondateurs + salariés).
-Sous la capacité : +2 équipe/mois. Au-dessus : -3. Au-dessus de 150 % : -6.
+capacité = 6 clients par personne (2 fondateurs + salariés).
+Sous 50 % de la capacité : +2 équipe/mois. Entre 50 et 100 % : 0. Au-dessus : -3. Au-dessus de 150 % : -6.
 Leçon : la croissance fatigue, le recrutement soulage mais coûte.
 
 **Marché** (morose / normal / euphorique)
@@ -101,12 +101,13 @@ Pas de mort aléatoire sans cause.
 | Fin | Condition | Message |
 |---|---|---|
 | EXIT | Accepter une offre de rachat (événement rare : mois 13+, PMF >= 60, MRR >= 8 000 €) | Fin exceptionnelle |
-| RENTABLE | MRR >= charges + salaire fondateurs (3 600 € si non payés) sur les 3 derniers mois, équipe >= 25 | Tu contrôles ton destin |
+| RENTABLE | MRR >= seuil de rentabilité (charges + 3 600 € de salaires fondateurs s'ils ne sont pas encore payés) sur les 2 derniers mois, équipe >= 25 | Tu contrôles ton destin |
 | LEVÉE + TRACTION | Seed signée, PMF >= 45, MRR >= 5 000 € | Une étape franchie, pas une victoire définitive |
 | TOUJOURS DEBOUT | Vivant sans remplir les autres critères | Fin neutre, pas une victoire |
 
 Priorité si plusieurs : Exit > Rentable > Levée + traction > Toujours debout.
 La règle "salaire fondateurs inclus" empêche la stratégie "ne rien dépenser" de passer pour une réussite : une startup qui ne paie pas ses fondateurs n'est pas rentable.
+Le HUD affiche ce seuil de rentabilité en permanence. Quand le MRR couvre les charges sans couvrir les salaires, le runway affiche "Cash stable" et pas "Rentable".
 
 ## 7. Événements
 
@@ -212,9 +213,33 @@ Vérifications :
 - recrutement trop puissant ? Non : 3 500 à 4 500 €/mois, utile seulement avec du PMF ou des revenus.
 - levée automatique ? Non : exige PMF, MRR, préparation, marché. Ajoute des charges (plan de recrutement promis).
 - cash fil rouge ? Oui : c'est la cause de mort principale.
-- plusieurs stratégies viables ? Produit, équilibré, sales avec PMF. À confirmer par la simulation automatique (`npm run simulate`).
+- plusieurs stratégies viables ? Produit, équilibré, sales avec PMF, levée avec traction.
 
-## 11. Hypothèses prises (sans validation)
+## 11. Simulation automatique (après code)
+
+`npm run simulate -- 1000` fait jouer 1 000 parties à 10 stratégies-types. Résultats avec les paramètres finaux :
+
+| Stratégie | Fins positives | Toujours debout | Mort cash | Mort équipe | Mois médian de mort |
+|---|---|---|---|---|---|
+| Aléatoire | 9 % | 40 % | 49 % | 3 % | 8 |
+| Dépensier | 12 % | 33 % | 53 % | 3 % | 5 |
+| Prudent | 1 % | 73 % | 26 % | 0 % | 11 |
+| Sales pur (sans PMF) | 0 % | 18 % | 82 % | 0 % | 6 |
+| Produit | 47 % | 17 % | 37 % | 0 % | 6 |
+| Sales avec PMF | 15 % | 49 % | 21 % | 15 % | 12 |
+| Levée avec traction | 22 % (10 % levée) | 48 % | 15 % | 16 % | 15 |
+| Rush (épuise l'équipe) | 0 % | 8 % | 4 % | 87 % | 15 |
+| Équilibré | 49 % | 44 % | 6 % | 1 % | 7 |
+
+Ajustements faits grâce à la simulation :
+
+- l'équipe ne tuait jamais personne : zone de charge "neutre" (pas de récupération entre 50 et 100 % de capacité), 6 clients par personne
+- l'exit sortait dans 9 % des parties équilibrées : conditions relevées (PMF 65, MRR 10 000 €), poids réduit
+- la levée Seed apparaissait trop rarement : poids x2, chance de base relevée
+- trop de "Toujours debout" chez les bons joueurs : croissance PMF/18 au lieu de PMF/20, rentabilité sur 2 mois au lieu de 3
+- incohérence HUD / fin de partie sur la rentabilité : seuil de rentabilité affiché, "Cash stable" au lieu de "Rentable"
+
+## 12. Hypothèses prises (sans validation)
 
 - Noms d'entreprises fictifs (pas de vraies marques) pour éviter toute confusion.
 - Pas de son, pas d'animations lourdes.

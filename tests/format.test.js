@@ -13,7 +13,7 @@ describe('format', () => {
   });
 
   it('labels runway for humans', () => {
-    expect(runwayLabel(Infinity)).toBe('Rentable');
+    expect(runwayLabel(Infinity)).toBe('Cash stable');
     expect(runwayLabel(8.7)).toBe('8 mois');
     expect(runwayLabel(0.4)).toBe('< 1 mois');
     expect(runwayLabel(40)).toBe('24+ mois');

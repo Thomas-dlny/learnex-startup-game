@@ -91,6 +91,16 @@ describe('buildRecap', () => {
     expect(buildRecap(s, { runs: [] }).cause.id).toBe('overload');
   });
 
+  it('explains a survival that covers costs but not founder salaries', () => {
+    const s = finalState({ mrr: 7000, costs: 6000, pmf: 50 });
+    expect(buildRecap(s, { runs: [] }).cause.id).toBe('survivor-no-salary');
+  });
+
+  it('explains a survival with an exhausted team', () => {
+    const s = finalState({ mrr: 12000, costs: 6000, pmf: 55, team: 15, profitStreak: 5 });
+    expect(buildRecap(s, { runs: [] }).cause.id).toBe('survivor-tired');
+  });
+
   it('compares with the previous best run', () => {
     const s = finalState({ month: 11, cash: -10, ending: { type: 'cash' } });
     const r = buildRecap(s, { runs: [{ monthsSurvived: 7 }], bestMonths: 7 });

@@ -375,7 +375,7 @@ export const CALLBACKS = [
     outcomes: [
       {
         chance: {
-          base: -0.4,
+          base: -0.3,
           pmf: 0.008,
           mrr: 0.05,
           market: { morose: -0.15, euphorique: 0.15 },

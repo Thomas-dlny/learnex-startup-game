@@ -15,7 +15,7 @@ export function signed(n) {
 }
 
 export function runwayLabel(r) {
-  if (r === Infinity) return 'Rentable';
+  if (r === Infinity) return 'Cash stable';
   if (r >= 24) return '24+ mois';
   if (r < 1) return '< 1 mois';
   return `${Math.floor(r)} mois`;

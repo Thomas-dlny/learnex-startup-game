@@ -1,5 +1,5 @@
 import { eur, signedEur, signed, runwayLabel } from '../game/format.js';
-import { netBurn, runway } from '../game/engine.js';
+import { netBurn, runway, breakEven } from '../game/engine.js';
 
 function Segments({ value, tone }) {
   const filled = Math.round(value / 10);
@@ -112,6 +112,11 @@ export default function Hud({ state }) {
         </span>
         <span>
           Burn net <strong>{netBurn(state) === 0 ? 'aucun' : `${eur(netBurn(state))}/mois`}</strong>
+        </span>
+        <span title="MRR à atteindre pour payer tes charges et un salaire aux deux fondateurs.">
+          Seuil de rentabilité{' '}
+          <strong className={state.mrr >= breakEven(state) ? 'is-reached' : ''}>{eur(breakEven(state))} de MRR</strong>
+          {!state.flags.foundersPaid && <em> salaires fondateurs compris</em>}
         </span>
       </p>
     </section>

@@ -25,6 +25,11 @@ export function runway(s) {
   return burn === 0 ? Infinity : s.cash / burn;
 }
 
+// Seuil de rentabilité : MRR à atteindre pour payer les charges ET les salaires des fondateurs.
+export function breakEven(s) {
+  return s.costs + (s.flags.foundersPaid ? 0 : CONFIG.founderSalary);
+}
+
 export function headcount(s) {
   return CONFIG.founders + s.staff.length;
 }
@@ -196,7 +201,7 @@ export function closeMonth(s) {
 
   // Charge de l'équipe
   const load = s.clients / (headcount(s) * CONFIG.clientsPerPerson);
-  let teamDelta = CONFIG.teamRecovery;
+  let teamDelta = load < CONFIG.calmLoad ? CONFIG.teamRecovery : 0;
   if (load > CONFIG.heavyOverloadRatio) teamDelta = CONFIG.teamHeavyOverload;
   else if (load > 1) teamDelta = CONFIG.teamOverload;
   const teamBefore = s.team;
@@ -204,8 +209,7 @@ export function closeMonth(s) {
   if (load > 1) s.stats.overloadMonths += 1;
 
   // Rentabilité : les revenus couvrent les charges ET un salaire pour les fondateurs
-  const salaryGap = s.flags.foundersPaid ? 0 : CONFIG.founderSalary;
-  s.profitStreak = s.mrr >= s.costs + salaryGap ? s.profitStreak + 1 : 0;
+  s.profitStreak = s.mrr >= breakEven(s) ? s.profitStreak + 1 : 0;
 
   s.stats.minCash = Math.min(s.stats.minCash, s.cash);
   s.stats.peakCosts = Math.max(s.stats.peakCosts, s.costs);

@@ -21,7 +21,7 @@ export const CONFIG = {
   founderSalary: 3600,
 
   // Croissance organique : nouveaux clients par mois = PMF x growthPerPmf x multiplicateurs
-  growthPerPmf: 1 / 20,
+  growthPerPmf: 1 / 18,
   salesPmfThreshold: 35, // au-dessus, un commercial est efficace
   salesBoostWithPmf: 0.8, // +80 % de croissance par commercial
   salesBoostWithoutPmf: 0.3, // +30 % seulement si le produit ne se vend pas encore seul
@@ -38,7 +38,8 @@ export const CONFIG = {
   devPmfPerMonth: 1, // chaque développeur fait progresser le produit
 
   // Charge de l'équipe
-  clientsPerPerson: 8,
+  clientsPerPerson: 6,
+  calmLoad: 0.5, // sous cette charge (clients / capacité), l'équipe récupère
   teamRecovery: 2,
   teamOverload: -3,
   teamHeavyOverload: -6,
@@ -55,7 +56,7 @@ export const CONFIG = {
 
   // Fins positives
   endings: {
-    profitStreak: 3, // mois consécutifs rentables (salaires fondateurs compris)
+    profitStreak: 2, // mois consécutifs rentables (salaires fondateurs compris)
     profitMinTeam: 25,
     fundedMinPmf: 45,
     fundedMinMrr: 5000,

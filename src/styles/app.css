@@ -444,6 +444,13 @@ button {
   color: var(--chalk);
   font-variant-numeric: tabular-nums;
 }
+.hud-sub strong.is-reached {
+  color: var(--good);
+}
+.hud-sub em {
+  font-style: normal;
+  font-size: 13px;
+}
 .hud-sub .hud-delta {
   margin-left: 6px;
 }

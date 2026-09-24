@@ -5,6 +5,7 @@ import {
   nextMonth,
   netBurn,
   runway,
+  breakEven,
   visibleChoices,
   currentEvent,
   applyEffects,
@@ -78,6 +79,14 @@ describe('burn and runway', () => {
     const s = { ...newGame(1, content()), costs: 2000, mrr: 2500 };
     expect(netBurn(s)).toBe(0);
     expect(runway(s)).toBe(Infinity);
+  });
+});
+
+describe('breakEven', () => {
+  it('includes founder salaries while founders are unpaid', () => {
+    const s = { ...newGame(1, content()), costs: 5000 };
+    expect(breakEven(s)).toBe(5000 + CONFIG.founderSalary);
+    expect(breakEven({ ...s, flags: { foundersPaid: true } })).toBe(5000);
   });
 });
 

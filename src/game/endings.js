@@ -108,6 +108,18 @@ function causeOf(s, type) {
     ],
     survivor: [
       {
+        id: 'survivor-tired',
+        test: () => s.team < CONFIG.endings.profitMinTeam,
+        title: 'Ton équipe est à bout.',
+        text: `Les chiffres tiennent, mais ton équipe termine à ${s.team}/100. Une startup rentable avec une équipe épuisée ne tient pas longtemps. Recrute ou ralentis avant la casse.`,
+      },
+      {
+        id: 'survivor-no-salary',
+        test: () => s.mrr >= s.costs && !s.flags.foundersPaid,
+        title: 'Tu couvres tes charges, pas encore vos salaires.',
+        text: `${eur(s.mrr)} de MRR pour ${eur(s.costs)} de charges : ton cash ne baisse plus. Mais vous ne vous payez pas. Il te faut ${eur(s.costs + CONFIG.founderSalary)} de MRR pour être vraiment rentable.`,
+      },
+      {
         id: 'survivor-no-pmf',
         test: () => s.pmf < 40,
         title: 'Il manquait du PMF pour décoller.',
@@ -125,7 +137,7 @@ function causeOf(s, type) {
         id: 'profitable',
         test: () => true,
         title: 'Tes revenus paient tes charges et vos salaires.',
-        text: `${eur(s.mrr)} de MRR pour ${eur(s.costs)} de charges. Tu ne dépends de personne pour la suite.`,
+        text: `${eur(s.mrr)} de MRR pour ${eur(s.costs)} de charges${s.flags.foundersPaid ? ', salaires compris' : ', et de quoi vous payer'}. Tu ne dépends de personne pour la suite.`,
       },
     ],
     funded: [
