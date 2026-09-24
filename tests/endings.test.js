@@ -109,6 +109,12 @@ describe('buildRecap', () => {
     expect(r.newRecord).toBe(true);
   });
 
+  it('numbers runs from the total count, not the capped history', () => {
+    const runs = Array.from({ length: 20 }, () => ({ monthsSurvived: 5 }));
+    const r = buildRecap(finalState({ month: 6, cash: -1, ending: { type: 'cash' } }), { runs, totalRuns: 25, bestMonths: 9 });
+    expect(r.runNumber).toBe(26);
+  });
+
   it('keeps at most 3 key decisions, in month order', () => {
     const history = [
       h(['growth'], { month: 2, delta: { cash: -4000 } }),

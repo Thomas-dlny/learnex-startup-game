@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { CONFIG } from '../game/config.js';
 import { zeroCashMonth } from '../game/format.js';
 
@@ -21,15 +22,26 @@ export default function Timeline({ state }) {
   const firstOpen = state.phase === 'event' ? state.month : state.month + 1;
   const zero = zeroCashMonth(state, firstOpen);
   const months = Array.from({ length: CONFIG.months }, (_, i) => i + 1);
+  const track = useRef(null);
+
+  // Sur petit écran, la frise défile : on garde le mois en cours visible.
+  useEffect(() => {
+    const el = track.current;
+    const cur = el?.children[state.month - 1];
+    if (el && cur && el.scrollWidth > el.clientWidth) {
+      el.scrollLeft = cur.offsetLeft - el.clientWidth / 2 + cur.clientWidth / 2;
+    }
+  }, [state.month]);
 
   let caption;
   if (zero === null) caption = 'Tes revenus couvrent tes charges : ton cash ne baisse plus.';
   else if (zero > CONFIG.months) caption = 'À ce rythme, ton cash tient jusqu’à la fin de l’incubation.';
+  else if (zero === firstOpen) caption = 'À ce rythme, ton cash passe sous 0 € ce mois-ci.';
   else caption = `À ce rythme, ton cash tombe à 0 € au mois ${zero}.`;
 
   return (
     <nav className="timeline" aria-label="Progression des 18 mois">
-      <ol className="tl-track">
+      <ol className="tl-track" ref={track}>
         {months.map((m) => {
           const done = m < state.month || (m === state.month && state.phase !== 'event');
           const current = m === state.month && state.phase === 'event';

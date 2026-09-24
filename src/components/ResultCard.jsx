@@ -42,7 +42,7 @@ export default function ResultCard({ state, onNext }) {
             <Line label="Nouveaux clients" value={signed(report.newClients)} tone={report.newClients > 0 ? 'good' : ''} />
             {report.lostClients > 0 && <Line label="Clients partis (churn)" value={`-${report.lostClients}`} tone="bad" />}
             {report.delta.pmf > 0 && <Line label="PMF grâce à tes devs" value={signed(report.delta.pmf)} tone="good" />}
-            <Line label="Énergie de l’équipe" value={signed(report.teamDelta)} tone={report.teamDelta >= 0 ? 'good' : 'bad'} />
+            <Line label="Énergie de l’équipe" value={signed(report.teamDelta)} tone={report.teamDelta > 0 ? 'good' : report.teamDelta < 0 ? 'bad' : ''} />
             <Line total label="Cash en fin de mois" value={eur(state.cash)} tone={state.cash < 0 ? 'bad' : ''} />
           </dl>
         </section>

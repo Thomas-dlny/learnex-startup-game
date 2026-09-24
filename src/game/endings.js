@@ -214,7 +214,7 @@ export function buildRecap(s, records = { runs: [] }) {
     type,
     ending: ENDINGS[type],
     positive: ENDINGS[type].positive,
-    runNumber: records.runs.length + 1,
+    runNumber: (records.totalRuns ?? records.runs.length) + 1,
     monthsSurvived: s.month,
     stats: { cash: s.cash, mrr: s.mrr, clients: s.clients, pmf: s.pmf, team: s.team, equity: s.equity, costs: s.costs },
     cause: causeOf(s, type),

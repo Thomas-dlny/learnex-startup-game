@@ -250,8 +250,9 @@ button {
   margin-bottom: 16px;
 }
 .tl-track {
+  position: relative;
   list-style: none;
-  padding: 20px 0 18px;
+  padding: 20px 0 20px;
   display: grid;
   grid-template-columns: repeat(18, minmax(34px, 1fr));
   gap: 4px;
@@ -338,7 +339,7 @@ button {
   white-space: nowrap;
 }
 .tl-caption {
-  margin-top: -8px;
+  margin-top: -2px;
   text-align: right;
   font-size: 14px;
   color: var(--muted);
@@ -377,14 +378,16 @@ button {
   margin-top: 2px;
 }
 .hud-value {
-  font-size: 28px;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 31px;
+  font-weight: 400;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .hud-value small {
-  margin-left: 2px;
+  margin-left: 3px;
+  font-family: var(--sans);
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
@@ -946,8 +949,8 @@ button {
   font-size: 14px;
 }
 .report-stats dd {
-  font-size: 23px;
-  font-weight: 800;
+  font-family: var(--serif);
+  font-size: 27px;
   font-variant-numeric: tabular-nums;
 }
 .report-block {
@@ -1088,27 +1091,56 @@ button {
     font-size: 11px;
   }
   .hud-main {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(6, 1fr);
   }
   .hud-cell,
   .hud-cell:nth-child(-n + 2) {
-    grid-column: span 1;
-    padding: 10px 14px;
-  }
-  .hud-cell:nth-child(odd) {
-    border-left: 0;
-  }
-  .hud-cell:nth-child(even) {
+    grid-column: span 2;
+    padding: 9px 12px 10px;
+    border-top: 0;
     border-left: 1px solid var(--rule);
   }
-  .hud-cell:nth-child(n + 3) {
+  .hud-cell:first-child {
+    border-left: 0;
+  }
+  .hud-cell:nth-child(n + 4) {
+    grid-column: span 3;
     border-top: 1px solid var(--rule);
   }
-  .hud-cell:last-child {
-    grid-column: span 2;
+  .hud-cell:nth-child(4) {
+    border-left: 0;
+  }
+  .hud-cell dt {
+    font-size: 13px;
   }
   .hud-value {
-    font-size: 23px;
+    font-size: 21px;
+  }
+  .hud-mrr .hud-value small {
+    display: none;
+  }
+  .hud-runway .hud-value {
+    font-size: 18px;
+    white-space: normal;
+  }
+  .hud-help {
+    display: none;
+  }
+  .hud-sub {
+    gap: 2px 16px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .hud-sub em {
+    display: none;
+  }
+  .ticker-tag {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .ticker-text {
+    padding: 6px 12px;
+    font-size: 14px;
   }
   .ticker {
     flex-wrap: wrap;
