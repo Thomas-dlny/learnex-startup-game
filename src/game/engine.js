@@ -6,9 +6,10 @@ import { roll, randomRound } from './rng.js';
 import { EVENTS } from '../data/events.js';
 import { CALLBACKS } from '../data/callbacks.js';
 import { NEWS } from '../data/news.js';
+import { SAVE_VERSION } from './storage.js';
 
 export const DEFAULT_CONTENT = { events: EVENTS, callbacks: CALLBACKS, news: NEWS };
-export const SAVE_VERSION = 1;
+
 
 const clamp = (x, min, max) => Math.min(max, Math.max(min, x));
 
