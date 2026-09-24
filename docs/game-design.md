@@ -52,7 +52,7 @@ Recap uniquement : part du capital détenue par les fondateurs.
 Dérivés :
 
 - burn net = charges - MRR (0 si positif)
-- runway = cash / burn net, affiché "Rentable" si burn net = 0
+- runway = cash / burn net, affiché "Cash stable" si burn net = 0
 
 ## 4. Mécaniques systémiques (clôture de mois)
 
