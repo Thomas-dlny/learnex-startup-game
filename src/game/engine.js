@@ -154,10 +154,10 @@ export function applyEffects(s, fx = {}) {
   if (fx.team) s.team = clamp(s.team + fx.team, 0, 100);
   if (fx.pmf) s.pmf = clamp(s.pmf + fx.pmf, 0, 100);
   if (fx.equity) s.equity = clamp(s.equity + fx.equity, 0, 100);
-  if (fx.hire) {
-    s.staff.push({ ...fx.hire, since: s.month });
-    s.costs += fx.hire.cost;
-    s.stats.hires.push({ month: s.month, role: fx.hire.role, mrr: s.mrr, pmf: s.pmf });
+  for (const h of [].concat(fx.hire || [])) {
+    s.staff.push({ ...h, since: s.month });
+    s.costs += h.cost;
+    s.stats.hires.push({ month: s.month, role: h.role, mrr: s.mrr, pmf: s.pmf });
   }
   if (fx.fire) fire(s, fx.fire);
   if (fx.flags) Object.assign(s.flags, fx.flags);

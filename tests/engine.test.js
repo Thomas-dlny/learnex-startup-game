@@ -110,6 +110,20 @@ describe('applyEffects', () => {
   });
 });
 
+describe('applyEffects with several hires', () => {
+  it('hires a whole team at once', () => {
+    const s = newGame(1, content());
+    applyEffects(s, {
+      hire: [
+        { role: 'sales', label: 'A', cost: 3500 },
+        { role: 'dev', label: 'B', cost: 4000 },
+      ],
+    });
+    expect(s.staff).toHaveLength(2);
+    expect(s.costs).toBe(1800 + 7500);
+  });
+});
+
 describe('closeMonth', () => {
   it('adds revenue and pays costs', () => {
     const s = { ...newGame(1, content()), pmf: 0, mrr: 1000, clients: 0 };
