@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { eur, fr } from '../game/format.js';
 import { ENDINGS } from '../game/endings.js';
 import { CONFIG } from '../game/config.js';
+import ShareCard, { shareText } from './ShareCard.jsx';
 
 function RunHistory({ runs }) {
   const last = runs.slice(-10);
@@ -25,23 +26,70 @@ function RunHistory({ runs }) {
   );
 }
 
-export default function RunRecap({ recap, records, onRestart, onHome }) {
+function Story({ story }) {
+  return (
+    <section className="report-block">
+      <h2>L’histoire de ta run</h2>
+      <ol className="story">
+        {story.map((e, i) => (
+          <li key={i} className={`story-${e.kind}${e.positive ? ' is-positive' : ''}`}>
+            <span className="story-month">M{e.month}</span>
+            <span className="story-dot" aria-hidden="true">
+              {e.icon || ''}
+            </span>
+            <span className="story-body">
+              <strong>{fr(e.title)}</strong>
+              {e.detail && <span>{fr(e.detail)}</span>}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+export default function RunRecap({ recap, records, onRestart, onReplay, onHome }) {
   const title = useRef(null);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     window.scrollTo(0, 0);
     title.current?.focus({ preventScroll: true });
   }, []);
   const { ending, stats, cause, profile } = recap;
 
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText(recap));
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+
   return (
     <main className="recap">
       <article className={`report ending-${recap.type}`}>
         <header className="report-head">
-          <p className="report-run">RUN #{recap.runNumber}</p>
+          <p className="report-run">
+            RUN #{recap.runNumber} · {recap.pathLabel}
+          </p>
           <p className="report-kicker">{ending.kicker}</p>
           <h1 className="report-title" ref={title} tabIndex={-1}>
-            {ending.title}
+            {fr(recap.headline)}
           </h1>
+          {!recap.positive && recap.wins.length > 0 && (
+            <div className="report-wins">
+              <p>Mais tu as réussi à :</p>
+              <ul>
+                {recap.wins.map((w) => (
+                  <li key={w.id}>
+                    <span aria-hidden="true">✓</span> {w.label}
+                    {w.isNew && <em>nouveau</em>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           <p className="report-profile">
             <span className="profile-name">« {profile.name} »</span>
             <span className="profile-line">{profile.line}</span>
@@ -63,6 +111,12 @@ export default function RunRecap({ recap, records, onRestart, onHome }) {
               </>
             )}
             {recap.previousBest !== null && !recap.newRecord && <>Ton record : {recap.previousBest} mois</>}
+            {recap.newMrrRecord && (
+              <>
+                <br />
+                <strong>Record de MRR : {eur(stats.mrr)}</strong>
+              </>
+            )}
           </p>
         </section>
 
@@ -104,27 +158,29 @@ export default function RunRecap({ recap, records, onRestart, onHome }) {
           <p>{fr(recap.strength)}</p>
         </section>
 
-        {recap.keyDecisions.length > 0 && (
-          <section className="report-block">
-            <h2>Tes décisions marquantes</h2>
-            <ol className="decisions">
-              {recap.keyDecisions.map((d) => (
-                <li key={`${d.month}-${d.eventId}`}>
-                  <span className="decision-month">M{d.month}</span>
-                  <span>
-                    {fr(d.title)} <strong>{fr(d.choice)}</strong>
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
+        <Story story={recap.story} />
+
+        <section className="report-block report-next">
+          <h2>À tester à la prochaine run</h2>
+          <p>{fr(recap.nextTry)}</p>
+        </section>
 
         <RunHistory runs={records.runs} />
 
+        <section className="report-block">
+          <h2>Ta carte de résultat</h2>
+          <ShareCard recap={recap} />
+          <button type="button" className="btn-ghost share-copy" onClick={copy}>
+            {copied ? 'Copié, à toi de le partager' : 'Copier mon résultat'}
+          </button>
+        </section>
+
         <div className="report-actions">
           <button type="button" className="btn-primary btn-xl" onClick={onRestart}>
-            RECOMMENCER
+            CRÉER UNE NOUVELLE STARTUP
+          </button>
+          <button type="button" className="btn-ghost" onClick={onReplay}>
+            Rejouer {recap.name} ({recap.pathLabel})
           </button>
           <button type="button" className="btn-link" onClick={onHome}>
             Retour à l’accueil

@@ -33,6 +33,7 @@ export default function Timeline({ state }) {
     }
   }, [state.month]);
 
+  // Le mois du 0 € est aussi écrit sous le runway, dans le HUD : ici, un simple repère visuel.
   let caption;
   if (zero === null) caption = 'Tes revenus couvrent tes charges : ton cash ne baisse plus.';
   else if (zero > CONFIG.months) caption = 'À ce rythme, ton cash tient jusqu’à la fin de l’incubation.';
@@ -64,7 +65,7 @@ export default function Timeline({ state }) {
           );
         })}
       </ol>
-      <p className={`tl-caption${zero !== null && zero - firstOpen < 3 ? ' is-danger' : ''}`}>{caption}</p>
+      <p className="visually-hidden">{caption}</p>
     </nav>
   );
 }

@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { EVENTS } from '../src/data/events.js';
 import { CALLBACKS } from '../src/data/callbacks.js';
 import { NEWS } from '../src/data/news.js';
+import { PATHS } from '../src/data/paths.js';
+import { GLOSSARY, termByName, splitTerms } from '../src/data/glossary.js';
+import { MILESTONES } from '../src/data/milestones.js';
+import { GENERIC_ADVICE } from '../src/data/characters.js';
 
 // Garde-fous pour les personnes qui modifient les fichiers de données.
 
 const EFFECT_KEYS = new Set(['cash', 'mrr', 'clients', 'team', 'pmf', 'costs', 'arpu', 'equity', 'mrrPct', 'arpuPct', 'clientsPct', 'costsPct', 'hire', 'fire', 'flags', 'market']);
-const COND_KEYS = new Set(['minPmf', 'maxPmf', 'minMrr', 'maxMrr', 'minCash', 'maxCash', 'minClients', 'maxClients', 'minTeam', 'maxTeam', 'minStaff', 'maxStaff', 'role', 'noRole', 'flag', 'notFlag', 'market']);
-const CHANCE_KEYS = new Set(['base', 'pmf', 'team', 'mrr', 'market', 'flags']);
+const COND_KEYS = new Set(['minPmf', 'maxPmf', 'minMrr', 'maxMrr', 'minCash', 'maxCash', 'minClients', 'maxClients', 'minTeam', 'maxTeam', 'minStaff', 'maxStaff', 'minMonth', 'role', 'noRole', 'flag', 'notFlag', 'market', 'path']);
+const CHANCE_KEYS = new Set(['base', 'pmf', 'team', 'mrr', 'growth', 'market', 'flags']);
 const TAGS = new Set(['growth', 'product', 'sales', 'cash', 'recruit', 'corporate', 'fundraise', 'team']);
 const STAGES = new Set(['flash', 'breaking', 'alert']);
 
@@ -93,8 +97,85 @@ describe('data files', () => {
   });
 
   it('never use a long dash', () => {
-    const text = JSON.stringify([EVENTS, CALLBACKS, NEWS]);
+    const text = JSON.stringify([EVENTS, CALLBACKS, NEWS, GLOSSARY, PATHS, MILESTONES.map((m) => m.label), GENERIC_ADVICE.map((a) => a.text)]);
     expect(text.includes('—')).toBe(false);
+  });
+
+  it('only target known paths, with a first event for each', () => {
+    for (const e of all) {
+      for (const p of e.paths || []) expect(PATHS[p], `${e.id}: parcours ${p}`).toBeTruthy();
+      if (e.weight && typeof e.weight === 'object') {
+        for (const p of Object.keys(e.weight)) expect(PATHS[p] || p === 'default', `${e.id}: poids ${p}`).toBeTruthy();
+      }
+      const texts = [e.title, e.text].filter((t) => t && typeof t === 'object');
+      for (const t of texts) expect(t.default ?? Object.keys(PATHS).every((p) => t[p]), e.id).toBeTruthy();
+    }
+    for (const p of Object.values(PATHS)) {
+      const first = EVENTS.find((e) => e.id === p.first);
+      expect(first, p.id).toBeTruthy();
+      expect(first.months, p.id).toEqual([1, 1]);
+    }
+  });
+
+  it('give each path enough events to replay', () => {
+    for (const p of Object.keys(PATHS)) {
+      const pool = EVENTS.filter((e) => !e.urgent && !e.fallback && (!e.paths || e.paths.includes(p)));
+      expect(pool.length, p).toBeGreaterThanOrEqual(28);
+    }
+  });
+
+  it('keep the three pools distinct', () => {
+    const only = (p) => EVENTS.filter((e) => e.paths && e.paths.length === 1 && e.paths[0] === p).length;
+    expect(only('bootstrap')).toBeGreaterThanOrEqual(4);
+    expect(only('deeptech')).toBeGreaterThanOrEqual(7);
+  });
+
+  it('only use placeholders the game knows', () => {
+    const text = JSON.stringify([EVENTS, CALLBACKS]);
+    const used = new Set([...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]));
+    for (const p of used) expect(['name', 'mentor', 'investor'], p).toContain(p);
+  });
+
+  it('make Thomas and Robin, and Gaspard, recurring characters', () => {
+    const mentorEvents = all.filter((e) => e.speaker === 'mentor');
+    expect(mentorEvents.length).toBeGreaterThanOrEqual(8);
+    const gaspard = all.filter((e) => JSON.stringify(e).includes('Gaspard') || JSON.stringify(e).includes('gaspard'));
+    expect(gaspard.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('give each lesson at most two sentences', () => {
+    for (const [where, ch] of all.flatMap((e) => [...choicesOf(e)])) {
+      if (ch.lesson) expect(ch.lesson.split(/[.!?] /).length, where).toBeLessThanOrEqual(3);
+    }
+  });
+});
+
+describe('glossary', () => {
+  it('defines every term the brief asks for, in one short sentence', () => {
+    for (const t of ['MVP', 'MRR', 'Burn', 'Runway', 'PMF', 'POC', 'Pivot', 'Seed', 'VC', 'ARR', 'Term sheet', 'Business angel', 'Bootstrap']) {
+      const entry = termByName(t);
+      expect(entry, t).toBeTruthy();
+      expect(entry.def.length, t).toBeLessThan(170);
+    }
+  });
+
+  it('finds terms inside a sentence, once each', () => {
+    const parts = splitTerms('Un POC payant, puis un autre POC. Ton MVP tourne.');
+    const terms = parts.filter((p) => typeof p !== 'string').map((p) => p.entry.term);
+    expect(terms).toEqual(['POC', 'MVP']);
+    expect(parts.map((p) => (typeof p === 'string' ? p : p.text)).join('')).toBe('Un POC payant, puis un autre POC. Ton MVP tourne.');
+  });
+
+  it('does not match a term inside a longer word', () => {
+    const parts = splitTerms('Le VCR et les burnouts.');
+    expect(parts.every((p) => typeof p === 'string')).toBe(true);
+  });
+});
+
+describe('milestones', () => {
+  it('have unique ids and readable labels', () => {
+    expect(new Set(MILESTONES.map((m) => m.id)).size).toBe(MILESTONES.length);
+    for (const m of MILESTONES) expect(m.label && m.icon && typeof m.test === 'function', m.id).toBeTruthy();
   });
 
   it('never show more than 3 choices at once for urgent events', () => {

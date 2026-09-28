@@ -10,6 +10,9 @@ import {
   currentEvent,
   applyEffects,
   closeMonth,
+  askAdvice,
+  expectedGrowth,
+  isOnboarded,
 } from '../src/game/engine.js';
 import { CONFIG } from '../src/game/config.js';
 
@@ -375,6 +378,121 @@ describe('failure and safety nets', () => {
     expect(s.current.id).toBe('team-crisis');
     s = nextMonth(chooseOption({ ...s, team: 20 }, 0, c), c);
     expect(s.current.id).not.toBe('team-crisis');
+  });
+});
+
+describe('V2 : parcours, recrues, conseils, jalons', () => {
+  const withFirsts = () => {
+    const c = content();
+    c.events.push(plain('bs-first', [1, 1], { paths: ['bootstrap'] }), plain('dt-first', [1, 1], { paths: ['deeptech'] }));
+    return c;
+  };
+
+  it('starts each path with its own settings, name and first event', () => {
+    const c = withFirsts();
+    const b = newGame(1, c, { path: 'bootstrap', name: 'Popote' });
+    expect(b.path).toBe('bootstrap');
+    expect(b.name).toBe('Popote');
+    expect(b.current.id).toBe('bs-first');
+    expect(b.costs).toBeLessThan(CONFIG.start.costs);
+    const d = newGame(1, c, { path: 'deeptech' });
+    expect(d.name).toBe('Kiloscope');
+    expect(d.current.id).toBe('dt-first');
+  });
+
+  it('never draws an event from another path', () => {
+    const c = withFirsts();
+    c.events.push(plain('saas-only', [2, 18], { paths: ['saas'], weight: 50 }));
+    for (let seed = 1; seed <= 30; seed++) {
+      const s = playMonth({ ...newGame(seed, c, { path: 'bootstrap' }), cash: 99999 }, c);
+      expect(s.current.id).not.toBe('saas-only');
+    }
+  });
+
+  it('does not grow at all below the PMF floor', () => {
+    for (let seed = 1; seed <= 50; seed++) {
+      const s = { ...newGame(seed, content()), pmf: CONFIG.pmfFloor };
+      expect(closeMonth(s).newClients).toBe(0);
+    }
+  });
+
+  it('grows slower when the client base is already large', () => {
+    const small = expectedGrowth({ ...newGame(1, content()), pmf: 70, clients: 0 });
+    const big = expectedGrowth({ ...newGame(1, content()), pmf: 70, clients: 60 });
+    expect(big).toBeLessThan(small * 0.6);
+  });
+
+  it('makes a new hire useful only after onboarding, and tiring meanwhile', () => {
+    const s = newGame(1, content());
+    applyEffects(s, { hire: { role: 'sales', label: 'A', cost: 3000 } });
+    const pmf = { ...s, pmf: 60 };
+    expect(expectedGrowth(pmf)).toBeCloseTo(expectedGrowth({ ...pmf, staff: [] }));
+    expect(isOnboarded({ ...pmf, month: 3 }, s.staff[0])).toBe(true);
+    expect(expectedGrowth({ ...pmf, month: 3 })).toBeGreaterThan(expectedGrowth({ ...pmf, staff: [] }));
+    const report = closeMonth({ ...s, pmf: 0, team: 60 });
+    expect(report.onboarding).toBe(1);
+    expect(report.teamDelta).toBeLessThan(CONFIG.teamRecovery);
+  });
+
+  it('cashes a setup fee for each new client on the bootstrap path', () => {
+    const s = newGame(1, withFirsts(), { path: 'bootstrap' });
+    const cash = s.cash;
+    applyEffects(s, { clients: 2 });
+    expect(s.cash).toBe(cash + 2 * 350);
+  });
+
+  it('gives mentor advice twice per run, never more', () => {
+    const c = content();
+    let s = newGame(1, c);
+    s = askAdvice(s, c);
+    expect(s.current.advice.text).toBeTruthy();
+    expect(s.adviceLeft).toBe(1);
+    expect(askAdvice(s, c)).toBe(s); // déjà demandé ce mois-ci
+    s = playMonth(s, c);
+    s = askAdvice({ ...s, cash: 99999 }, c);
+    expect(s.adviceLeft).toBe(0);
+    s = playMonth(s, c);
+    expect(askAdvice(s, c)).toBe(s);
+  });
+
+  it('alternates Thomas and Robin on mentor events', () => {
+    const c = content();
+    c.events[0] = { ...plain('interviews', [1, 1]), speaker: 'mentor' };
+    c.events.push(plain('mentor-2', [2, 2], { speaker: 'mentor', weight: 1000 }));
+    let s = newGame(1, c);
+    expect(s.current.mentor).toBe('thomas');
+    s = playMonth({ ...s, cash: 99999 }, c);
+    expect(s.current.id).toBe('mentor-2');
+    expect(s.current.mentor).toBe('robin');
+  });
+
+  it('celebrates a milestone once, when it happens', () => {
+    const c = content();
+    c.events[0] = { ...plain('interviews', [1, 1]), choices: [{ label: 'Signer', effects: { clients: 1 } }] };
+    const s = chooseOption(newGame(1, c), 0, c);
+    expect(s.result.milestones).toContain('first-client');
+    expect(s.milestones.filter((m) => m.id === 'first-client')).toHaveLength(1);
+  });
+
+  it('shows a lesson at most once every two months', () => {
+    const c = content();
+    const withLesson = (id, months) => ({ ...plain(id, months), choices: [{ label: 'X', effects: {}, lesson: 'Leçon.' }] });
+    c.events = c.events.filter((e) => !e.id.startsWith('filler'));
+    c.events[0] = withLesson('interviews', [1, 1]);
+    c.events.push(withLesson('l2', [2, 2]), withLesson('l3', [3, 3]));
+    let s = chooseOption(newGame(1, c), 0, c);
+    expect(s.result.lesson).toBe('Leçon.');
+    s = chooseOption(nextMonth({ ...s, cash: 99999 }, c), 0, c);
+    expect(s.result.lesson).toBeNull();
+    s = chooseOption(nextMonth({ ...s, cash: 99999 }, c), 0, c);
+    expect(s.result.lesson).toBe('Leçon.');
+  });
+
+  it('fills the startup name in texts', () => {
+    const c = content();
+    c.events[0] = { ...plain('interviews', [1, 1]), choices: [{ label: 'Go', effects: {}, text: '{name} signe.' }] };
+    const s = chooseOption(newGame(1, c, { name: 'Tartine' }), 0, c);
+    expect(s.result.text).toBe('Tartine signe.');
   });
 });
 
