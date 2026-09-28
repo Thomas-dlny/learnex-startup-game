@@ -8,7 +8,7 @@ export function shareText(recap) {
     `RUN #${recap.runNumber} · ${recap.pathLabel} · ${recap.ending.kicker}`,
     `${recap.monthsSurvived} mois · ${stats.clients} clients · ${eur(stats.mrr)} de MRR · PMF ${stats.pmf}/100`,
     `Profil : ${recap.profile.name}`,
-    'Startup Incubation Game, EDHEC Entrepreneurs',
+    'The Runway Game, EDHEC Entrepreneurs',
   ].join('\n');
 }
 

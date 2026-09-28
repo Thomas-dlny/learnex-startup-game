@@ -1,6 +1,6 @@
-# Startup Incubation Game
+# The Runway Game
 
-Jeu web die and retry pour les Learnex EDHEC Entrepreneurs.
+Jeu web die and retry d'EDHEC Entrepreneurs.
 Tu nommes ta startup, tu choisis ton parcours (SaaS, Bootstrap ou Deeptech) et tu la diriges pendant 18 mois d'incubation.
 Thomas et Robin, mentors de l'incubateur, t'ouvrent des portes. Gaspard, investisseur, revient te voir si tu tiens parole.
 Une partie dure 5 à 10 minutes. Tu perds, tu lis le récit de ta run, tu recommences.
