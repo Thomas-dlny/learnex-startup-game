@@ -2,26 +2,67 @@ import { useEffect, useRef, useState } from 'react';
 import { eur, fr } from '../game/format.js';
 import { ENDINGS } from '../game/endings.js';
 import { CONFIG } from '../game/config.js';
-import ShareCard, { shareText } from './ShareCard.jsx';
+import ShareCard, { shareText, cardFromRun } from './ShareCard.jsx';
 
-function RunHistory({ runs }) {
+// Carte de résultat, avec l'historique des dernières runs : un clic sur une barre
+// affiche la carte de cette run. Par défaut, la run qui vient de se terminer.
+function ResultCards({ recap, runs }) {
   const last = runs.slice(-10);
-  if (last.length < 2) return null;
+  const [selected, setSelected] = useState(last.length - 1);
+  const [copied, setCopied] = useState(false);
+  const isCurrent = selected === last.length - 1 || last.length === 0;
+  const card = isCurrent ? recap : cardFromRun(last[selected]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareText(card));
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  };
+  const pick = (i) => {
+    setSelected(i);
+    setCopied(false);
+  };
+
   return (
-    <section className="report-block report-history">
-      <h2>Tes dernières runs</h2>
-      <ol className="history-bars" aria-label="Mois survécus par run">
-        {last.map((r, i) => (
-          <li key={i} className={`${ENDINGS[r.type]?.positive ? 'is-positive' : ''}${i === last.length - 1 ? ' is-current' : ''}`}>
-            <span className="bar" style={{ height: `${(r.monthsSurvived / CONFIG.months) * 100}%` }} />
-            <span className="bar-value">{r.monthsSurvived}</span>
-            <span className="visually-hidden">
-              Run {r.runNumber} : {r.monthsSurvived} mois, {ENDINGS[r.type]?.kicker}
-            </span>
-          </li>
-        ))}
-      </ol>
-      <p className="history-legend">Mois survécus. En or : fins positives.</p>
+    <section className="report-block report-cards">
+      <h2>{last.length >= 2 ? 'Tes dernières runs' : 'Ta carte de résultat'}</h2>
+      <div className="cards-layout">
+        {last.length >= 2 && (
+          <div className="history">
+            <ol className="history-bars" aria-label="Mois survécus par run. Choisis une run pour voir sa carte.">
+              {last.map((r, i) => (
+                <li key={i} className={`${ENDINGS[r.type]?.positive ? 'is-positive' : ''}${i === last.length - 1 ? ' is-current' : ''}`}>
+                  <button
+                    type="button"
+                    className={`history-bar${i === selected ? ' is-selected' : ''}`}
+                    aria-pressed={i === selected}
+                    onClick={() => pick(i)}
+                  >
+                    <span className="bar-value">{r.monthsSurvived}</span>
+                    <span className="bar" style={{ height: `${(r.monthsSurvived / CONFIG.months) * 100}%` }} />
+                    <span className="bar-run" aria-hidden="true">
+                      #{r.runNumber}
+                    </span>
+                    <span className="visually-hidden">
+                      Run {r.runNumber} : {r.monthsSurvived} mois, {ENDINGS[r.type]?.kicker}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <p className="history-legend">Mois survécus. En or : fins positives. Clique sur une run pour voir sa carte.</p>
+          </div>
+        )}
+        <div className="card-slot">
+          <ShareCard recap={card} key={card.runNumber} />
+          <button type="button" className="btn-ghost share-copy" onClick={copy}>
+            {copied ? 'Copié, à toi de le partager' : isCurrent ? 'Copier mon résultat' : `Copier la run #${card.runNumber}`}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
@@ -50,21 +91,11 @@ function Story({ story }) {
 
 export default function RunRecap({ recap, records, onRestart, onReplay, onHome }) {
   const title = useRef(null);
-  const [copied, setCopied] = useState(false);
   useEffect(() => {
     window.scrollTo(0, 0);
     title.current?.focus({ preventScroll: true });
   }, []);
   const { ending, stats, cause, profile } = recap;
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(shareText(recap));
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
 
   return (
     <main className="recap">
@@ -165,15 +196,7 @@ export default function RunRecap({ recap, records, onRestart, onReplay, onHome }
           <p>{fr(recap.nextTry)}</p>
         </section>
 
-        <RunHistory runs={records.runs} />
-
-        <section className="report-block">
-          <h2>Ta carte de résultat</h2>
-          <ShareCard recap={recap} />
-          <button type="button" className="btn-ghost share-copy" onClick={copy}>
-            {copied ? 'Copié, à toi de le partager' : 'Copier mon résultat'}
-          </button>
-        </section>
+        <ResultCards recap={recap} runs={records.runs} />
 
         <div className="report-actions">
           <button type="button" className="btn-primary btn-xl" onClick={onRestart}>
