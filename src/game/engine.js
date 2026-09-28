@@ -469,17 +469,20 @@ export function chooseOption(state, index, content = DEFAULT_CONTENT) {
   // Jalons atteints par le choix lui-même (avant le churn de fin de mois).
   const reachedByChoice = checkMilestones(s);
   let report = null;
+  // Au dernier mois, les 18 mois sont tenus : une équipe à bout ne transforme plus la fin
+  // en défaite, elle compte dans le bilan final (rentable et levée exigent une équipe debout).
+  const lastMonth = s.month >= CONFIG.months;
   if (outcome.end || choice.end) {
     s.ending = { type: outcome.end || choice.end };
-  } else if (s.team <= 0) {
+  } else if (s.team <= 0 && !lastMonth) {
     s.ending = { type: 'team' };
   } else {
     const beforeClose = snapshot(s);
     report = closeMonth(s);
     report.delta = diff(beforeClose, s);
     if (s.cash < 0) s.ending = { type: 'cash' };
+    else if (lastMonth) s.ending = { type: 'final' };
     else if (s.team <= 0) s.ending = { type: 'team' };
-    else if (s.month >= CONFIG.months) s.ending = { type: 'final' };
   }
 
   s.phase = 'result';

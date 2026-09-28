@@ -36,7 +36,7 @@ export function endingRules(s) {
 export function evaluateFinal(s) {
   const e = endingRules(s);
   if (s.profitStreak >= e.profitStreak && s.team >= e.profitMinTeam) return 'profitable';
-  if (s.flags.raised && s.pmf >= e.fundedMinPmf && s.mrr >= e.fundedMinMrr) return 'funded';
+  if (s.flags.raised && s.pmf >= e.fundedMinPmf && s.mrr >= e.fundedMinMrr && s.team >= e.profitMinTeam) return 'funded';
   return 'survivor';
 }
 
@@ -53,8 +53,10 @@ export function headlineOf(s, type) {
     case 'cash':
       return `${name} ferme après ${n} mois`;
     case 'team':
-      return `${name} s’arrête après ${n} mois`;
+      return `${name} s’arrête au mois ${n} : l’équipe est à bout`;
     case 'survivor':
+      if (s.flags?.raised && s.team < endingRules(s).profitMinTeam) return `${name} lève, mais finit à bout de souffle`;
+      if (s.flags?.raised) return `${name} lève, sans assez de traction`;
       return `${name} tient 18 mois, sans décoller`;
     case 'profitable':
       return `${name} vit de ses revenus`;
@@ -121,6 +123,12 @@ function causeOf(s, type) {
     ],
     team: [
       {
+        id: 'raised-crunch',
+        test: () => s.flags.raised && s.stats.hires.filter((h) => s.month - h.month <= 3).length >= 3,
+        title: 'Ta levée a achevé une équipe déjà fatiguée.',
+        text: 'Lever, c’est aussi intégrer plusieurs recrues d’un coup. Chaque intégration pèse sur l’équipe pendant deux mois. Arrivée épuisée, elle n’a pas tenu.',
+      },
+      {
         id: 'overload',
         test: () => s.stats.overloadMonths >= 4,
         title: 'Ton équipe a porté trop de clients sans renfort.',
@@ -134,6 +142,18 @@ function causeOf(s, type) {
       },
     ],
     survivor: [
+      {
+        id: 'survivor-raised-tired',
+        test: () => s.flags.raised && s.team < endingRules(s).profitMinTeam,
+        title: 'Ta levée est arrivée sur une équipe épuisée.',
+        text: `Tu as signé ta levée, mais ton équipe termine à ${s.team}/100. Les recrues imposées par le fonds demandent deux mois d’intégration : une équipe déjà à bout ne les encaisse pas. Une levée réussie se prépare aussi côté énergie.`,
+      },
+      {
+        id: 'survivor-raised',
+        test: () => s.flags.raised,
+        title: 'Tu as levé, mais la traction ne suit pas encore.',
+        text: `PMF ${s.pmf}/100 et ${eur(s.mrr)} de MRR : les investisseurs attendent au moins un PMF de ${endingRules(s).fundedMinPmf} et ${eur(endingRules(s).fundedMinMrr)} de MRR. Tu as du runway pour y arriver, pas encore les chiffres.`,
+      },
       {
         id: 'survivor-tired',
         test: () => s.team < endingRules(s).profitMinTeam,
@@ -196,6 +216,9 @@ const NEXT_TRY = {
   'big-spends': 'Avant chaque dépense, regarde ton runway : combien de mois elle te coûte, et quand elle rapporte.',
   'paid-too-early': 'Verse-vous un salaire quand ton MRR couvre tes charges. Avant, cherche un prêt d’honneur ou une subvention.',
   'slow-revenue': 'Sécurise du runway tôt : Bourse French Tech, prêt d’honneur, ou dépenses plus serrées les 6 premiers mois.',
+  'raised-crunch': 'Avant de signer une levée, remonte l’énergie de ton équipe : une pause ou un freelance. Les recrues du fonds la fatiguent pendant deux mois.',
+  'survivor-raised-tired': 'Lève plus tôt, ou avec une équipe au-dessus de 50 : les recrues imposées par le fonds fatiguent tout le monde pendant leur intégration.',
+  'survivor-raised': 'Lève quand ta courbe monte déjà : PMF au-dessus de 45 et MRR qui grimpe depuis 3 mois.',
   overload: 'Surveille la charge de ton équipe : au-delà de 6 clients par personne, recrute ou ralentis.',
   crunch: 'Garde des mois pour souffler. Une équipe au-dessus de 50 encaisse les coups durs.',
   'survivor-tired': 'Protège ton équipe en fin de run : un recrutement ou une pause au bon moment change tout.',

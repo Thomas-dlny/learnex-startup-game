@@ -42,6 +42,10 @@ describe('evaluateFinal', () => {
     expect(evaluateFinal(finalState({ flags: { raised: true }, pmf: 50, mrr: 6000 }))).toBe('funded');
   });
 
+  it('does not count a raise as a success when the team ends exhausted', () => {
+    expect(evaluateFinal(finalState({ flags: { raised: true }, pmf: 50, mrr: 7000, team: 0 }))).toBe('survivor');
+  });
+
   it('prefers profitable over funded when both apply', () => {
     expect(evaluateFinal(finalState({ flags: { raised: true }, pmf: 50, mrr: 9000, profitStreak: 4 }))).toBe('profitable');
   });
@@ -99,6 +103,25 @@ describe('buildRecap', () => {
   it('explains a survival with an exhausted team', () => {
     const s = finalState({ mrr: 12000, costs: 6000, pmf: 55, team: 15, profitStreak: 5 });
     expect(buildRecap(s, { runs: [] }).cause.id).toBe('survivor-tired');
+  });
+
+  it('tells a raise on an exhausted team apart from a plain survival', () => {
+    const s = finalState({ name: 'BigPapa', flags: { raised: true }, pmf: 50, mrr: 7000, team: 0 });
+    const r = buildRecap(s, { runs: [] });
+    expect(r.type).toBe('survivor');
+    expect(r.cause.id).toBe('survivor-raised-tired');
+    expect(r.headline).toBe('BigPapa lève, mais finit à bout de souffle');
+  });
+
+  it('names the team collapse in the headline', () => {
+    const s = finalState({ name: 'BigPapa', team: 0, month: 11, ending: { type: 'team' } });
+    expect(buildRecap(s, { runs: [] }).headline).toBe('BigPapa s’arrête au mois 11 : l’équipe est à bout');
+  });
+
+  it('blames a raise that brought too many hires at once', () => {
+    const hires = [16, 16, 16, 16].map((month) => ({ month, role: 'sales', mrr: 5000, pmf: 50 }));
+    const s = finalState({ month: 17, team: 0, flags: { raised: true }, ending: { type: 'team' }, stats: { ...finalState().stats, hires, overloadMonths: 5 } });
+    expect(buildRecap(s, { runs: [] }).cause.id).toBe('raised-crunch');
   });
 
   it('compares with the previous best run', () => {
