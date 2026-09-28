@@ -1,8 +1,9 @@
 # Startup Incubation Game
 
 Jeu web die and retry pour les Learnex EDHEC Entrepreneurs.
-Tu diriges Glane, une startup anti-gaspillage pour restaurants, pendant 18 mois d'incubation.
-Une partie dure 5 à 10 minutes. Tu perds, tu lis ton bilan, tu recommences.
+Tu nommes ta startup, tu choisis ton parcours (SaaS, Bootstrap ou Deeptech) et tu la diriges pendant 18 mois d'incubation.
+Thomas et Robin, mentors de l'incubateur, t'ouvrent des portes. Gaspard, investisseur, revient te voir si tu tiens parole.
+Une partie dure 5 à 10 minutes. Tu perds, tu lis le récit de ta run, tu recommences.
 
 Game design complet : [`docs/game-design.md`](docs/game-design.md).
 
@@ -24,16 +25,22 @@ Autres commandes :
 | `npm test` | Tests du moteur, des fins de partie, du stockage et des données |
 | `npm run build` | Version prête à héberger, dans `dist/` |
 | `npm run preview` | Sert le dossier `dist/` en local pour vérifier le build |
-| `npm run simulate` | Fait jouer 500 parties à 10 stratégies-types pour vérifier l'équilibrage |
+| `npm run simulate` | Fait jouer 400 parties à 9 stratégies-types, sur les 3 parcours, pour vérifier l'équilibrage |
 
 ## Où se trouve quoi
 
 ```
 src/
   data/
-    events.js      événements du jeu (le contenu principal)
-    callbacks.js   conséquences différées ("3 mois plus tard...")
-    news.js        bandeau ACTU et humeur du marché
+    events.js          événements partagés (le contenu principal)
+    events-people.js   Thomas, Robin et Gaspard, les personnages récurrents
+    events-paths.js    événements propres aux parcours Bootstrap et Deeptech
+    callbacks.js       conséquences différées ("3 mois plus tard...")
+    paths.js           les 3 parcours : départ, croissance, churn, fins, déblocage
+    glossary.js        définitions du jargon, affichées en infobulle
+    milestones.js      jalons célébrés pendant la run
+    characters.js      mentors et conseils génériques
+    news.js            bandeau ACTU et humeur du marché
   game/
     config.js      paramètres d'équilibrage
     engine.js      règles du jeu (mois, effets, croissance, churn, défaites)
@@ -88,7 +95,13 @@ Exemple minimal :
 
 Pour aller plus loin :
 
-- **Résultat aléatoire** : `outcomes` avec une `chance`. La chance se calcule ainsi : `base + pmf x PMF + team x Équipe + mrr x (MRR / 1000)`, plus des bonus selon le marché ou des flags. Le premier résultat tiré l'emporte, le dernier sert de repli.
+- **Résultat aléatoire** : `outcomes` avec une `chance`. La chance se calcule ainsi : `base + pmf x PMF + team x Équipe + mrr x (MRR / 1000) + growth x croissance du MRR sur 3 mois`, plus des bonus selon le marché ou des flags. Le premier résultat tiré l'emporte, le dernier sert de repli.
+- **Parcours** : `paths: ['saas', 'deeptech']` limite l'événement à ces parcours. `weight: { deeptech: 2 }` le rend plus fréquent dans un parcours.
+- **Nom de la startup et personnages** : `{name}` dans un texte devient le nom choisi par le joueur. `speaker: 'mentor'` fait parler Thomas ou Robin, en alternance, et `{mentor}` affiche son prénom.
+- **Mémoire** : un choix pose un flag (`flags: { metGaspard: true }`), un autre événement le lit (`when: { flag: 'metGaspard' }`).
+- **Conseil mentor** : `advice` donne une piste de réflexion si le joueur demande conseil. Une question, jamais la réponse.
+- **À retenir** : `lesson` sur un choix affiche un encadré après le choix (4 par run au plus).
+- **Jargon** : les mots définis dans `src/data/glossary.js` sont soulignés automatiquement dans les textes. Ajoute un mot là-bas, pas dans l'événement.
 - **Conséquence différée** : `delayed: [{ in: 3, id: 'mon-retour' }]`, puis tu ajoutes `mon-retour` dans `src/data/callbacks.js`.
 - **Condition d'apparition** : `when: { minPmf: 30, minClients: 5 }`. Liste complète des clés en tête de `events.js`.
 - **Recrutement** : `hire: { role: 'dev', label: 'Développeuse', cost: 3800 }` ajoute une charge mensuelle.
@@ -98,19 +111,21 @@ Pour aller plus loin :
 
 Les réglages globaux sont dans `src/game/config.js`, commentés :
 
-- départ : cash, charges, prix moyen, équipe, PMF
-- croissance organique : `growthPerPmf` (nouveaux clients par point de PMF)
+- croissance organique : `growthBase`, courbe du PMF (`pmfFloor`, `pmfFull`, `pmfCurve`), saturation
 - efficacité d'un commercial avec ou sans PMF
+- intégration des recrues : durée et fatigue
 - churn selon le PMF
 - charge de l'équipe : clients par personne, récupération, surcharge
 - seuils des alertes et des fins positives
 
-Après chaque réglage, lance `npm run simulate`. Le tableau montre, pour chaque stratégie, la part de fins positives et de défaites, ainsi que le mois médian de défaite. Repères actuels :
+Les réglages de chaque parcours (cash de départ, charges, prix, croissance, churn, frais d'installation, fins) sont dans `src/data/paths.js`.
 
-- joueur au hasard : environ 10 % de fins positives, mort vers le mois 8
-- joueur équilibré : environ 50 % de fins positives
-- joueur prudent qui ne dépense rien : presque jamais de fin positive
-- aucune stratégie au-dessus de 70 %
+Après chaque réglage, lance `npm run simulate`. Le tableau montre, pour chaque parcours et chaque stratégie, la part de fins positives et de défaites, le mois moyen de la mort, le MRR médian et celui des 10 % meilleures parties, et la part des parties à 30 000 € de MRR ou plus. Repères visés :
+
+- joueur au hasard : il perd presque toujours, vers le mois 9 ou 10
+- plusieurs stratégies raisonnables gagnent entre 20 % et 50 % du temps, aucune au-dessus de 60 %
+- 30 000 € de MRR reste rare (moins de 5 % des parties, même bien jouées)
+- ne rien dépenser ne suffit pas pour gagner
 
 ## Déployer gratuitement
 
@@ -163,7 +178,8 @@ Le build utilise des chemins relatifs (`base: './'` dans `vite.config.js`) : il 
 Le jeu garde dans le navigateur (localStorage) :
 
 - la partie en cours, pour la reprendre après un rechargement
-- les 20 dernières runs, le record de survie et les fins débloquées
+- les 20 dernières runs, le record de survie, les fins débloquées, les jalons atteints et les parcours joués
+- le fait d'avoir vu le tuto (bouton « ? » en haut à droite pour le revoir)
 
 Aucune donnée personnelle, rien ne part sur un serveur. Si le navigateur bloque le stockage (navigation privée stricte), le jeu fonctionne quand même, sans sauvegarde entre deux visites.
 

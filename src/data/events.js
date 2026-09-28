@@ -4,15 +4,17 @@
 // Champs :
 //   id        identifiant unique
 //   months    [premier mois, dernier mois] où l'événement peut sortir
+//   paths     parcours concernés : ['saas', 'bootstrap', 'deeptech'] (tous si absent)
 //   category  étiquette affichée au-dessus du titre
-//   speaker   personnage qui parle (optionnel)
+//   speaker   personnage qui parle (optionnel). 'mentor' = Thomas ou Robin, en alternance
 //   stage     'flash' | 'breaking' | 'alert' pour une mise en scène forte (optionnel)
-//   title, text   textes courts (2 phrases max)
-//   note      explication d'un mot de jargon (optionnel)
+//   title, text   textes courts (2 phrases max). {name} = nom de la startup, {mentor} = mentor du mois.
+//             Un texte peut varier selon le parcours : { saas: '...', deeptech: '...', default: '...' }
+//   advice    piste de réflexion donnée par un mentor si le joueur demande conseil (optionnel)
 //   when      conditions d'apparition : minPmf, maxPmf, minMrr, maxMrr, minCash, maxCash,
-//             minClients, maxClients, minTeam, maxTeam, minStaff, maxStaff,
-//             role ('dev' | 'sales' | 'intern'), noRole, flag, notFlag, market
-//   weight    probabilité relative (1 par défaut)
+//             minClients, maxClients, minTeam, maxTeam, minStaff, maxStaff, minMonth,
+//             role ('dev' | 'sales' | 'intern'), noRole, flag, notFlag, market, path
+//   weight    probabilité relative (1 par défaut), ou par parcours : { saas: 2, deeptech: 0.5 }
 //   choices   2 ou 3 options :
 //     label    texte du bouton
 //     hints    indices qualitatifs affichés AVANT le choix (évite les chiffres exacts)
@@ -25,23 +27,32 @@
 //              flags: { nom: true }, market: 'morose' | 'normal' | 'euphorique'
 //     delayed  conséquences différées : [{ in: nb de mois, id: 'id dans callbacks.js' }]
 //     outcomes résultats aléatoires : [{ if, chance, text, effects, delayed }]
-//              chance = { base, pmf, team, mrr (par 1 000 € de MRR), market: {...}, flags: {...} }
+//              chance = { base, pmf, team, mrr (par 1 000 € de MRR), growth (croissance du MRR
+//              sur 3 mois), market: {...}, flags: {...} }
 //              le premier résultat tiré l'emporte, le dernier sert de repli
 //     text     ce qui s'est passé, affiché après le choix
+//     lesson   encadré « À retenir » (rare, 4 par run au plus)
 //     end      'exit' termine la partie (rachat)
+//
+// Les événements propres à un parcours et aux personnages récurrents sont dans
+// events-paths.js et events-people.js.
 
-export const EVENTS = [
+import { PATH_EVENTS } from './events-paths.js';
+import { PEOPLE_EVENTS } from './events-people.js';
+
+const SHARED_EVENTS = [
   // ---------------------------------------------------------------------------
   // ACTE 1 : SURVIVRE (mois 1 à 6)
 
   {
     id: 'interviews',
     months: [1, 1],
+    paths: ['saas'],
     category: 'Premier mois',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     title: 'Par quoi tu commences ?',
     text: 'Ton MVP tourne chez 3 restaurants amis. Tu as une liste de 12 features à coder et zéro client payant.',
-    note: 'MVP : première version du produit, simple, faite pour apprendre.',
+    advice: 'Avant de coder quoi que ce soit : sais-tu quel problème tes clients paieraient pour résoudre ?',
     choices: [
       {
         label: 'Interviewer 15 restaurateurs',
@@ -49,6 +60,7 @@ export const EVENTS = [
         tags: ['product'],
         effects: { cash: -300, team: -3, pmf: 12 },
         text: 'Surprise : leur vrai problème, ce sont les commandes fournisseurs, pas les stocks. Tu revois ta priorité numéro 1.',
+        lesson: 'Parler à tes clients coûte peu et fait monter ton PMF. C’est le meilleur investissement du début.',
       },
       {
         label: 'Coder les features de ta liste',
@@ -64,7 +76,7 @@ export const EVENTS = [
         tags: ['sales'],
         outcomes: [
           {
-            chance: { base: 0.6 },
+            chance: { base: 0.55 },
             effects: { clients: 1, team: -3 },
             text: '40 appels, 1 restaurant signé. Le patron te dit : « Je prends, mais faut que ça marche. »',
           },
@@ -77,10 +89,12 @@ export const EVENTS = [
   {
     id: 'first-prospect',
     months: [2, 5],
+    paths: ['saas'],
     category: 'Premier client',
     speaker: 'Marc, patron de brasserie',
     title: '« Je signe, mais à moitié prix »',
     text: 'Une brasserie de 80 couverts veut ton logiciel. Le patron négocie dur : -50 % ou rien.',
+    advice: 'Un premier client à moitié prix, c’est un client ou une habitude ? Pense à ce qu’il dira à ses voisins.',
     choices: [
       {
         label: 'Accepter la remise',
@@ -96,7 +110,7 @@ export const EVENTS = [
         tags: ['cash'],
         outcomes: [
           {
-            chance: { base: 0.25, pmf: 0.012 },
+            chance: { base: 0.2, pmf: 0.012 },
             effects: { clients: 1, pmf: 2 },
             text: 'Il râle, puis signe à plein tarif. Ton produit vaut son prix.',
           },
@@ -117,11 +131,13 @@ export const EVENTS = [
   {
     id: 'vivatech',
     months: [4, 7],
+    weight: { saas: 1, bootstrap: 0.4, deeptech: 1.3 },
     category: 'Salon',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     stage: 'breaking',
     title: 'VivaTech t’ouvre un stand',
-    text: 'Quatre jours au plus grand salon tech d’Europe, dans l’espace startups. Le stand coûte 4 000 €.',
+    text: 'Quatre jours au plus grand salon tech d’Europe, dans l’espace startups de l’incubateur. Le stand coûte 4 000 €.',
+    advice: 'Un salon rapporte quand tu sais qui tu viens voir. Tu as une liste de noms ?',
     choices: [
       {
         label: 'Prendre le stand',
@@ -130,6 +146,7 @@ export const EVENTS = [
         effects: { cash: -4000, team: -6 },
         delayed: [{ in: 3, id: 'vivatech-callback' }],
         text: '300 cartes de visite, 2 kilos de goodies, une extinction de voix. Maintenant, il faut attendre.',
+        lesson: 'Une grosse dépense doit rapporter avant la fin de ton runway. Sinon, elle arrive trop tard.',
       },
       {
         label: 'Y aller en visiteur',
@@ -150,7 +167,7 @@ export const EVENTS = [
         hints: ['Ton équipe souffle', 'Tu avances sur le produit'],
         tags: ['product'],
         effects: { team: 3, pmf: 2 },
-        text: 'Pendant que tout le monde est au salon, tu livres enfin la refonte des commandes.',
+        text: 'Pendant que tout le monde est au salon, tu livres enfin la refonte promise à tes clients.',
       },
     ],
   },
@@ -158,11 +175,12 @@ export const EVENTS = [
   {
     id: 'bpi-bourse',
     months: [2, 8],
+    weight: { deeptech: 2 },
     category: 'Financement',
     speaker: 'Karim, chargé d’affaires Bpifrance',
     title: 'La Bourse French Tech est ouverte',
     text: 'Une subvention jusqu’à 30 000 € pour les jeunes startups. Le dossier est long et le jury sélectif.',
-    note: 'Subvention : argent public qui ne se rembourse pas et ne coûte pas de capital.',
+    advice: 'Combien de temps ton équipe peut-elle donner à un dossier sans lâcher tes clients ?',
     choices: [
       {
         label: 'Monter le dossier',
@@ -171,6 +189,7 @@ export const EVENTS = [
         effects: { team: -6 },
         delayed: [{ in: 3, id: 'bpi-result' }],
         text: 'Trois soirées sur le dossier, un budget prévisionnel refait quatre fois. Envoyé.',
+        lesson: 'Une subvention ne coûte pas de parts de ta boîte. Elle coûte du temps, et elle arrive tard.',
       },
       {
         label: 'Pas le temps',
@@ -185,19 +204,21 @@ export const EVENTS = [
   {
     id: 'hire-sales',
     months: [5, 14],
+    paths: ['saas', 'bootstrap'],
     category: 'Recrutement',
     speaker: 'Inès, commerciale expérimentée',
     title: 'Une commerciale veut te rejoindre',
     text: 'Inès a vendu des logiciels aux restaurants pendant 6 ans. Elle demande un CDI.',
-    note: 'Un salarié coûte environ 1,5 fois son salaire brut, charges comprises.',
+    advice: 'Ton produit se vend-il déjà quand c’est toi qui le présentes ? Un commercial accélère ce qui marche.',
     choices: [
       {
         label: 'L’embaucher en CDI',
-        hints: ['Charge fixe élevée chaque mois', 'Plus de ventes si ton produit convainc'],
+        hints: ['Charge fixe élevée chaque mois', 'Deux mois pour être efficace', 'Plus de ventes si ton produit convainc'],
         tags: ['recruit', 'sales'],
-        effects: { hire: { role: 'sales', label: 'Inès, commerciale', cost: 3500 }, team: 4 },
+        effects: { hire: { role: 'sales', label: 'Inès, commerciale', cost: 3500 }, team: 3 },
         delayed: [{ in: 3, id: 'sales-review' }],
         text: 'Inès arrive lundi avec son carnet d’adresses. Ta masse salariale fait un bond.',
+        lesson: 'Un salaire est une charge fixe : tu le paies chaque mois, même les mois sans vente.',
       },
       {
         label: 'Lui proposer du freelance à la commission',
@@ -205,7 +226,7 @@ export const EVENTS = [
         tags: ['sales', 'cash'],
         outcomes: [
           {
-            chance: { base: 0.2, pmf: 0.01 },
+            chance: { base: 0.15, pmf: 0.008 },
             effects: { clients: 2, cash: -500 },
             text: 'Elle accepte et signe 2 restaurants en un mois. Commission versée.',
           },
@@ -218,7 +239,7 @@ export const EVENTS = [
         tags: ['cash'],
         effects: { team: -4 },
         outcomes: [
-          { chance: { base: 0.5 }, effects: { clients: 1 }, text: 'Tu signes un restaurant de plus entre deux réunions.' },
+          { chance: { base: 0.3, pmf: 0.006 }, effects: { clients: 1 }, text: 'Tu signes un restaurant de plus entre deux réunions.' },
           { effects: {}, text: 'Pas le temps de prospecter ce mois-ci.' },
         ],
       },
@@ -232,6 +253,7 @@ export const EVENTS = [
     speaker: 'Agence Pixel & Pastis',
     title: 'Un site vitrine magnifique pour 5 000 €',
     text: 'Une agence te montre une maquette superbe : vidéo, animations, photos de chefs. « Votre image, c’est votre premier commercial. »',
+    advice: 'D’où viennent tes clients aujourd’hui ? Le site joue-t-il un rôle dans leur décision ?',
     choices: [
       {
         label: 'Signer le devis',
@@ -261,17 +283,17 @@ export const EVENTS = [
   {
     id: 'freelance-designer',
     months: [2, 7],
+    paths: ['saas', 'bootstrap'],
     category: 'Produit',
     speaker: 'Sofia, designer freelance',
     title: 'Ton onboarding fait fuir la moitié des inscrits',
     text: 'Sofia a regardé tes statistiques : un restaurant sur deux abandonne avant la fin de la configuration.',
-    note: 'Onboarding : les premières minutes d’un nouvel utilisateur dans ton produit.',
     choices: [
       {
         label: 'Payer Sofia pour tout refaire',
         hints: ['Coût : 2 500 €', 'Produit plus simple à adopter'],
         tags: ['product'],
-        effects: { cash: -2500, pmf: 7 },
+        effects: { cash: -2500, pmf: 6 },
         text: 'Trois écrans au lieu de onze. Les nouveaux inscrits vont jusqu’au bout.',
       },
       {
@@ -304,7 +326,7 @@ export const EVENTS = [
     speaker: 'Ton associé, seul sur le code',
     title: 'La roadmap déborde',
     text: 'Ton associé code seul, le soir et le week-end. Les demandes clients s’empilent.',
-    note: 'Un salarié coûte environ 1,5 fois son salaire brut, charges comprises.',
+    advice: 'Tu as besoin de vitesse pendant un mois ou de capacité pendant un an ? Ce n’est pas le même contrat.',
     choices: [
       {
         label: 'Un dev freelance pour un mois',
@@ -318,10 +340,10 @@ export const EVENTS = [
       },
       {
         label: 'Recruter un dev en CDI',
-        hints: ['Charge fixe élevée chaque mois', 'Le produit progresse tous les mois'],
+        hints: ['Charge fixe élevée chaque mois', 'Deux mois d’intégration', 'Le produit progresse ensuite chaque mois'],
         tags: ['recruit', 'product'],
-        effects: { hire: { role: 'dev', label: 'Développeuse', cost: 3800 }, team: 5 },
-        text: 'Amina rejoint l’équipe. Ton associé dort enfin.',
+        effects: { hire: { role: 'dev', label: 'Amina, développeuse', cost: 3800 }, team: 4 },
+        text: 'Amina rejoint l’équipe. Il lui faudra quelques semaines pour connaître le code.',
       },
       {
         label: 'Tenir à deux',
@@ -345,7 +367,7 @@ export const EVENTS = [
         label: 'Le prendre en stage',
         hints: ['Petit coût chaque mois', 'Des bras en plus', 'Il faut l’encadrer'],
         tags: ['recruit'],
-        effects: { hire: { role: 'intern', label: 'Tom, stagiaire', cost: 700 }, team: 4 },
+        effects: { hire: { role: 'intern', label: 'Tom, stagiaire', cost: 700 }, team: 3 },
         delayed: [{ in: 6, id: 'intern-end' }],
         text: 'Tom arrive avec un carnet neuf et 40 questions.',
       },
@@ -362,11 +384,13 @@ export const EVENTS = [
   {
     id: 'meta-ads',
     months: [2, 10],
+    paths: ['saas', 'bootstrap'],
+    weight: { bootstrap: 0.6 },
     category: 'Acquisition',
     speaker: 'Kevin, consultant growth',
     title: '« Avec 3 000 € de Meta Ads, je te ramène des clients »',
     text: 'Kevin a un plan : ciblage restaurateurs, vidéos courtes, landing page optimisée.',
-    note: 'Meta Ads : publicités payantes sur Facebook et Instagram.',
+    advice: 'Si 10 restaurants arrivent demain, combien restent au bout de 3 mois ?',
     choices: [
       {
         label: 'Lancer 3 000 € de pub',
@@ -375,16 +399,20 @@ export const EVENTS = [
         effects: { cash: -3000 },
         delayed: [{ in: 2, id: 'ads-churn' }],
         outcomes: [
-          { chance: { base: 0.4, pmf: 0.01 }, effects: { clients: 5 }, text: 'Les clics pleuvent : 5 restaurants s’abonnent en trois semaines.' },
-          { effects: { clients: 3 }, text: 'Beaucoup de clics, 3 abonnements. Le coût par client pique un peu.' },
+          { chance: { base: 0.3, pmf: 0.008 }, effects: { clients: 4 }, text: 'Les clics pleuvent : 4 restaurants s’abonnent en trois semaines.' },
+          { effects: { clients: 2 }, text: 'Beaucoup de clics, 2 abonnements. Le coût par client pique.' },
         ],
+        lesson: 'La pub fait venir des clients. Seul ton produit les fait rester.',
       },
       {
         label: 'Tester avec 500 €',
         hints: ['Coût : 500 €', 'Tu apprends quels messages marchent'],
         tags: ['growth', 'product'],
-        effects: { cash: -500, pmf: 3, clients: 1 },
-        text: 'Le message « -30 % de gaspillage » bat tous les autres. Précieux pour la suite.',
+        effects: { cash: -500, pmf: 3 },
+        outcomes: [
+          { chance: { base: 0.3, pmf: 0.005 }, effects: { clients: 1 }, text: 'Le message « -30 % de gaspillage » bat tous les autres. Un restaurant s’abonne au passage.' },
+          { text: 'Le message « -30 % de gaspillage » bat tous les autres. Précieux pour la suite.' },
+        ],
       },
       {
         label: 'Pas de pub',
@@ -402,14 +430,14 @@ export const EVENTS = [
     category: 'Incubateur',
     speaker: 'Claire, experte pricing EDHEC Entrepreneurs',
     title: '2 heures avec une experte pricing',
-    text: 'Claire accompagne les startups de l’incubateur sur leurs prix. Elle a un créneau cette semaine.',
+    text: 'Thomas t’a obtenu un créneau avec Claire, qui accompagne les startups de l’incubateur sur leurs prix.',
     choices: [
       {
         label: 'Bloquer les 2 heures',
         hints: ['Un peu de temps', 'Tes prix vont bouger'],
         tags: ['product'],
-        effects: { arpuPct: 20, mrrPct: 10, team: -1 },
-        text: 'Verdict : tu vends trop peu cher. Nouveaux clients à 300 €, légère hausse pour les autres. Personne ne part.',
+        effects: { arpuPct: 15, mrrPct: 5, team: -1 },
+        text: 'Verdict : tu vends trop peu cher. Nouveaux clients 15 % plus chers, légère hausse pour les autres. Personne ne part.',
       },
       {
         label: 'Pas le temps ce mois-ci',
@@ -425,32 +453,34 @@ export const EVENTS = [
     id: 'mentor-intro',
     months: [3, 12],
     category: 'Incubateur',
-    speaker: 'Philippe, mentor EDHEC Entrepreneurs',
+    speaker: 'Robin, mentor EDHEC Entrepreneurs',
     title: '« Je peux te présenter quelqu’un »',
-    text: 'Ton mentor a un carnet d’adresses bien rempli. Il te propose une introduction, une seule. Tu choisis.',
+    text: 'Robin a un carnet d’adresses bien rempli. Il te propose une introduction, une seule. À toi de choisir.',
+    advice: 'Quel est ton plus gros frein ce trimestre : vendre, financer, ou te faire connaître ?',
     choices: [
       {
         label: 'Un directeur achats de la restauration collective',
         hints: ['Piste corporate', 'Cycle de vente long'],
         tags: ['corporate'],
         delayed: [{ in: 2, id: 'mentor-corporate' }],
-        effects: {},
-        text: 'Philippe envoie un mail. Réponse : « Revenons-en après l’été. »',
+        effects: { flags: { robinIntroUsed: true, corporateWarm: true } },
+        text: 'Robin envoie un mail. Réponse : « Revenons-en après l’été. »',
       },
       {
         label: 'Une business angel de la foodtech',
         hints: ['Piste financement', 'Il faudra la convaincre'],
         tags: ['fundraise'],
-        effects: { flags: { investorContact: true } },
+        effects: { flags: { investorContact: true, robinIntroUsed: true } },
         delayed: [{ in: 2, id: 'angel-meeting' }],
         text: 'Café prévu dans deux mois. Elle veut voir tes chiffres.',
       },
       {
-        label: 'Un restaurateur étoilé très influent',
+        label: 'Un chef étoilé très influent',
         hints: ['Visibilité dans le milieu', 'Pas de revenus directs'],
         tags: ['growth'],
+        effects: { flags: { robinIntroUsed: true } },
         outcomes: [
-          { chance: { base: 0.3, pmf: 0.01 }, effects: { clients: 3, pmf: 2 }, text: 'Il adopte Glane et en parle à ses amis chefs. 3 nouveaux clients.' },
+          { chance: { base: 0.2, pmf: 0.008 }, effects: { clients: 2, pmf: 2 }, text: 'Il adopte {name} et en parle à ses amis chefs. 2 nouveaux clients.' },
           { effects: { pmf: 3 }, text: 'Il ne s’abonne pas, mais ses critiques affûtent ton produit.' },
         ],
       },
@@ -460,11 +490,12 @@ export const EVENTS = [
   {
     id: 'unhappy-client',
     months: [3, 10],
+    paths: ['saas', 'bootstrap'],
     when: { minClients: 2 },
     category: 'Client mécontent',
     speaker: 'Nadia, gérante de pizzeria',
     title: '« Votre logiciel a planté pendant le rush »',
-    text: 'Samedi soir, 150 couverts, Glane ne répondait plus. Nadia veut résilier.',
+    text: 'Samedi soir, 150 couverts, {name} ne répondait plus. Nadia veut résilier.',
     choices: [
       {
         label: 'Tout lâcher pour corriger',
@@ -494,6 +525,7 @@ export const EVENTS = [
   {
     id: 'salon-pro',
     months: [3, 10],
+    weight: { deeptech: 0.5 },
     category: 'Salon',
     title: 'Le Salon de la Restauration de Lyon cherche des exposants',
     text: 'Deux jours, 12 000 professionnels de la restauration. Exactement ta cible.',
@@ -504,8 +536,8 @@ export const EVENTS = [
         tags: ['growth', 'sales'],
         effects: { cash: -2500, team: -4 },
         outcomes: [
-          { chance: { base: 0.3, pmf: 0.01 }, effects: { clients: 4 }, text: 'Ta démo en live fait mouche. 4 restaurants signent sur place.' },
-          { effects: { clients: 2 }, text: 'Beaucoup de passage, 2 signatures. Les autres « vont réfléchir ».' },
+          { chance: { base: 0.15, pmf: 0.008 }, effects: { clients: 3 }, text: 'Ta démo en live fait mouche. 3 clients signent sur place.' },
+          { effects: { clients: 1 }, text: 'Beaucoup de passage, 1 signature. Les autres « vont réfléchir ».' },
         ],
       },
       {
@@ -514,7 +546,7 @@ export const EVENTS = [
         tags: ['sales'],
         effects: { cash: -200, team: -3 },
         outcomes: [
-          { chance: { base: 0.5 }, effects: { clients: 1 }, text: 'Un badge visiteur, 30 conversations, 1 client.' },
+          { chance: { base: 0.35 }, effects: { clients: 1 }, text: 'Un badge visiteur, 30 conversations, 1 client.' },
           { text: 'Les exposants n’aiment pas trop qu’on démarche leurs visiteurs.' },
         ],
       },
@@ -534,14 +566,20 @@ export const EVENTS = [
     category: 'Équipe',
     speaker: 'Ton associé',
     title: 'Désaccord sur la cible',
-    text: 'Il veut viser les chaînes de restaurants. Toi, les indépendants. Le ton monte en réunion.',
+    text: {
+      default: 'Il veut viser les chaînes de restaurants. Toi, les indépendants. Le ton monte en réunion.',
+      deeptech: 'Il veut vendre aux industriels de l’agroalimentaire. Toi, aux cuisines centrales. Le ton monte en réunion.',
+    },
     choices: [
       {
         label: 'Deux jours de séminaire pour trancher',
         hints: ['Petit coût', 'L’équipe se ressoude'],
         tags: ['team'],
         effects: { cash: -600, team: 10, pmf: 2 },
-        text: 'Un gîte, un tableau blanc, des données clients. Vous tombez d’accord : les indépendants d’abord.',
+        text: {
+          default: 'Un gîte, un tableau blanc, des données clients. Vous tombez d’accord : les indépendants d’abord.',
+          deeptech: 'Un gîte, un tableau blanc, des données terrain. Vous tombez d’accord : les cuisines centrales d’abord.',
+        },
       },
       {
         label: 'Trancher seul, tu es le CEO',
@@ -568,8 +606,7 @@ export const EVENTS = [
     category: 'Financement',
     speaker: 'Réseau de prêt d’honneur',
     title: '20 000 € à taux zéro, sans garantie',
-    text: 'Un comité de chefs d’entreprise prête aux fondateurs prometteurs. Il faut pitcher en 10 minutes.',
-    note: 'Prêt d’honneur : prêt personnel au fondateur, sans intérêts, remboursé après quelques années.',
+    text: 'Un comité de chefs d’entreprise accorde un prêt d’honneur aux fondateurs prometteurs. Il faut pitcher en 10 minutes.',
     choices: [
       {
         label: 'Pitcher devant le comité',
@@ -578,7 +615,7 @@ export const EVENTS = [
         effects: { team: -3 },
         outcomes: [
           {
-            chance: { base: 0.3, pmf: 0.012, mrr: 0.1 },
+            chance: { base: 0.2, pmf: 0.01, mrr: 0.08 },
             effects: { cash: 20000, flags: { honorLoan: true } },
             text: 'Accordé. 20 000 € sur ton compte, et un parrain chef d’entreprise en bonus.',
           },
@@ -598,18 +635,21 @@ export const EVENTS = [
   {
     id: 'big-prospect-feature',
     months: [3, 11],
+    paths: ['saas'],
     when: { maxPmf: 70 },
     category: 'Gros prospect',
     speaker: 'Directeur des opérations, chaîne Les Bonnes Tables',
     title: '« Je signe si vous ajoutez cette fonctionnalité »',
     text: '12 restaurants d’un coup. Mais il veut un module de planning du personnel. Rien à voir avec ton produit.',
+    advice: 'Si tu construis ce module, qui d’autre parmi tes clients va s’en servir ?',
     choices: [
       {
         label: 'La développer',
-        hints: ['Gros client', 'Ta roadmap déraille'],
+        hints: ['Gros client possible', 'Ta roadmap déraille', 'Signature pas garantie'],
         tags: ['sales', 'corporate'],
-        effects: { team: -6, pmf: -3, clients: 1, mrr: 900 },
-        text: 'Contrat signé : 1 150 €/mois. Ton produit a maintenant une fonctionnalité que personne d’autre n’utilise.',
+        effects: { team: -7, pmf: -3 },
+        delayed: [{ in: 2, id: 'big-prospect-sign' }],
+        text: 'Six semaines sur un module de planning. Il promet de signer à la livraison.',
       },
       {
         label: 'Refuser et rester focus',
@@ -624,9 +664,9 @@ export const EVENTS = [
         tags: ['sales'],
         outcomes: [
           {
-            chance: { base: 0.25, pmf: 0.01 },
-            effects: { clients: 1, mrr: 1200, team: -3 },
-            text: 'Il accepte de payer le développement. 1 450 €/mois, et le module financé.',
+            chance: { base: 0.15, pmf: 0.008 },
+            effects: { clients: 1, mrr: 850, team: -4 },
+            text: 'Il accepte de financer le développement. Contrat signé, module payé.',
           },
           { effects: {}, text: 'Trop cher pour lui. Il reviendra peut-être.' },
         ],
@@ -639,7 +679,7 @@ export const EVENTS = [
     months: [2, 9],
     category: 'Presse',
     speaker: 'Journaliste, quotidien régional',
-    title: 'Un journaliste veut écrire sur Glane',
+    title: 'Un journaliste veut écrire sur {name}',
     text: 'Sujet : les jeunes pousses qui luttent contre le gaspillage. Une heure d’interview et une photo.',
     choices: [
       {
@@ -648,7 +688,7 @@ export const EVENTS = [
         tags: ['growth'],
         effects: { team: -1 },
         outcomes: [
-          { chance: { base: 0.45 }, effects: { clients: 2 }, text: 'L’article sort en page 3. Deux restaurateurs t’appellent le lendemain.' },
+          { chance: { base: 0.2, pmf: 0.006 }, effects: { clients: 1 }, text: 'L’article sort en page 3. Un restaurateur t’appelle le lendemain et signe.' },
           { effects: { team: 3 }, text: 'L’article sort en page 14. Ta mère l’a encadré.' },
         ],
       },
@@ -662,39 +702,79 @@ export const EVENTS = [
     ],
   },
 
+  {
+    id: 'missing-feature',
+    months: [4, 14],
+    paths: ['saas', 'bootstrap'],
+    when: { minClients: 3 },
+    category: 'Produit',
+    title: '« Il vous manque l’export comptable »',
+    text: 'Trois prospects te disent la même chose : sans export vers leur logiciel de compta, ils ne signent pas.',
+    advice: 'Trois prospects, c’est un signal ou une coïncidence ? Qu’en disent tes clients actuels ?',
+    choices: [
+      {
+        label: 'Le développer ce mois-ci',
+        hints: ['Charge importante', 'Des signatures à la clé ?'],
+        tags: ['product'],
+        effects: { team: -6, pmf: 3 },
+        delayed: [{ in: 1, id: 'feature-deals' }],
+        text: 'Export livré en trois semaines. Tu rappelles les trois prospects.',
+      },
+      {
+        label: 'Un export Excel en attendant',
+        hints: ['Rapide', 'Solution bancale'],
+        tags: ['sales'],
+        effects: { team: -2 },
+        outcomes: [
+          { chance: { base: 0.4 }, effects: { clients: 1 }, text: 'Un prospect s’en contente et signe. Les deux autres attendent mieux.' },
+          { text: '« On reviendra quand ce sera vraiment intégré. »' },
+        ],
+      },
+      {
+        label: 'Ignorer, ce n’est pas ta cible',
+        hints: ['Ta roadmap reste propre', 'Prospects perdus'],
+        tags: ['product'],
+        effects: { pmf: 1 },
+        text: 'Tu gardes ta roadmap. Les trois prospects partent ailleurs.',
+      },
+    ],
+  },
+
   // ---------------------------------------------------------------------------
   // ACTE 2 : TROUVER DE LA TRACTION (mois 7 à 12, certains dès le mois 5)
 
   {
     id: 'raise-prices',
     months: [6, 14],
+    paths: ['saas', 'bootstrap'],
     when: { minClients: 5 },
     category: 'Pricing',
     speaker: 'Claire, experte pricing EDHEC Entrepreneurs',
     title: 'Tes clients ne discutent jamais le prix',
-    text: '« Si personne ne négocie, c’est que tu es trop bas. » Claire te pousse à monter tes prix de 30 %.',
+    text: '« Si personne ne négocie, c’est que tu es trop bas. » Claire te pousse à monter tes prix de 20 %.',
+    advice: 'Tes clients discutent-ils le prix, ou la valeur ? Ce n’est pas la même conversation.',
     choices: [
       {
-        label: '+30 % pour tout le monde',
+        label: '+20 % pour tout le monde',
         hints: ['Plus de revenus', 'Certains clients partiront'],
         tags: ['sales', 'cash'],
         outcomes: [
           {
-            if: { minPmf: 45 },
-            effects: { arpuPct: 30, clientsPct: -8, mrrPct: 30 },
+            if: { minPmf: 50 },
+            effects: { arpuPct: 20, clientsPct: -8, mrrPct: 20 },
             text: 'Deux clients râlent, presque tous restent. Ton produit est devenu indispensable.',
           },
           {
-            effects: { arpuPct: 30, clientsPct: -30, mrrPct: 30 },
-            text: 'Un tiers de tes clients part. Ton produit n’était pas encore indispensable.',
+            effects: { arpuPct: 20, clientsPct: -25, mrrPct: 20 },
+            text: 'Un quart de tes clients part. Ton produit n’était pas encore indispensable.',
           },
         ],
       },
       {
-        label: '+30 % pour les nouveaux clients',
+        label: '+20 % pour les nouveaux clients',
         hints: ['Aucun risque pour tes clients actuels', 'Effet progressif'],
         tags: ['sales'],
-        effects: { arpuPct: 30 },
+        effects: { arpuPct: 20 },
         text: 'Les nouveaux contrats passent à un tarif plus élevé. Personne ne bronche.',
       },
       {
@@ -713,21 +793,21 @@ export const EVENTS = [
     category: 'Recrutement',
     speaker: 'Yanis, développeur senior',
     title: 'Un dev senior est disponible',
-    text: 'Yanis a 8 ans d’expérience et adore ton sujet. Il n’est pas donné.',
-    note: 'Un salarié coûte environ 1,5 fois son salaire brut, charges comprises.',
+    text: 'Yanis a 8 ans d’expérience et adore ton sujet. Il demande un CDI, et il n’est pas donné.',
+    advice: 'Ton problème, c’est la vitesse du code ou de savoir quoi coder ?',
     choices: [
       {
         label: 'Embaucher Yanis en CDI',
-        hints: ['Charge fixe élevée', 'Produit plus solide chaque mois'],
+        hints: ['Charge fixe élevée', 'Deux mois d’intégration', 'Produit plus solide ensuite'],
         tags: ['recruit', 'product'],
-        effects: { hire: { role: 'dev', label: 'Yanis, dev senior', cost: 4500 }, team: 6 },
-        text: 'Yanis arrive et refait l’architecture en deux semaines. Impressionnant, et cher.',
+        effects: { hire: { role: 'dev', label: 'Yanis, dev senior', cost: 4500 }, team: 5 },
+        text: 'Yanis arrive et commence par tout relire. Impressionnant, et cher.',
       },
       {
         label: 'Prendre un dev junior à la place',
         hints: ['Charge fixe', 'Moins cher', 'À encadrer'],
         tags: ['recruit'],
-        effects: { hire: { role: 'dev', label: 'Dev junior', cost: 2800 }, team: -2 },
+        effects: { hire: { role: 'dev', label: 'Lucas, dev junior', cost: 2800 }, team: -2 },
         delayed: [{ in: 3, id: 'junior-bug' }],
         text: 'Lucas sort d’école. Motivé, rapide, parfois trop.',
       },
@@ -744,28 +824,31 @@ export const EVENTS = [
   {
     id: 'hotel-poc',
     months: [6, 14],
+    paths: ['saas', 'deeptech'],
+    weight: { deeptech: 1.5 },
     when: { minPmf: 25 },
     category: 'Client corporate',
     speaker: 'Directrice RSE, groupe hôtelier Arcane',
     stage: 'breaking',
     title: 'Un groupe hôtelier veut tester ton produit',
     text: 'Un POC de 3 mois dans 15 restaurants d’hôtels. Le potentiel est énorme, mais ton équipe devra presque tout arrêter.',
-    note: 'POC (Proof of Concept) : test payant du produit chez un client, avant un vrai contrat.',
+    advice: 'Un POC mobilise ton équipe pendant 3 mois. Qui s’occupe de tes autres clients pendant ce temps ?',
     choices: [
       {
         label: 'Accepter le POC',
-        hints: ['Potentiel commercial élevé', 'Charge importante'],
+        hints: ['Potentiel commercial élevé', 'Charge importante', 'Contrat pas garanti'],
         tags: ['corporate'],
-        effects: { cash: 5000, team: -10 },
+        effects: { cash: 5000, team: -10, flags: { corporateWarm: true } },
         delayed: [{ in: 3, id: 'poc-result' }],
         text: '5 000 € versés au démarrage. Réunions, comités, badges d’accès : bienvenue dans les grands groupes.',
+        lesson: 'Un POC rapporte du cash et de la crédibilité. Il coûte beaucoup d’énergie et ne garantit pas le contrat.',
       },
       {
         label: 'Rester focus',
         hints: ['Moins de revenus potentiels', 'Produit mieux protégé'],
         tags: ['product'],
         effects: { team: 3, pmf: 3 },
-        text: 'Tu déclines. Tes restaurants profitent de toute ton attention.',
+        text: 'Tu déclines. Tes clients actuels profitent de toute ton attention.',
       },
     ],
   },
@@ -773,11 +856,12 @@ export const EVENTS = [
   {
     id: 'tender',
     months: [7, 15],
+    paths: ['saas', 'deeptech'],
     when: { minPmf: 30 },
     category: 'Appel d’offres',
     title: 'La métropole lance un appel d’offres pour ses cantines',
     text: '80 cantines scolaires, contrat de 3 ans. Le dossier fait 140 pages.',
-    note: 'Appel d’offres : mise en concurrence publique. Dossier lourd, réponse lente.',
+    advice: '140 pages, c’est combien de semaines sans vendre ailleurs ?',
     choices: [
       {
         label: 'Répondre à l’appel d’offres',
@@ -789,7 +873,7 @@ export const EVENTS = [
       },
       {
         label: 'Passer ton tour',
-        hints: ['Tu restes sur tes restaurants'],
+        hints: ['Tu restes sur ta cible'],
         tags: ['product'],
         effects: { team: 2 },
         text: 'Tu laisses les marchés publics aux grands éditeurs. Pour l’instant.',
@@ -800,20 +884,22 @@ export const EVENTS = [
   {
     id: 'pivot',
     months: [6, 11],
+    paths: ['saas', 'bootstrap'],
     when: { maxPmf: 40 },
     category: 'Pivot',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     stage: 'flash',
     title: 'Les cantines d’entreprise adorent ton produit',
-    text: 'Tes données sont claires : 3 cantines d’entreprise utilisent Glane deux fois plus que tes restaurants. Et elles paient mieux.',
-    note: 'Pivot : changer de cible ou de produit à partir de ce que le marché t’apprend.',
+    text: 'Tes données sont claires : 3 cantines d’entreprise utilisent {name} deux fois plus que tes restaurants, et paient mieux. {mentor} parle de pivot.',
+    advice: 'Qu’est-ce que tes données disent, et qu’est-ce que ton attachement à ton idée de départ dit ?',
     choices: [
       {
         label: 'Pivoter vers les cantines',
         hints: ['Tu perds une grosse partie de tes clients', 'Marché plus clair'],
         tags: ['product'],
-        effects: { clientsPct: -60, pmf: 22, team: -6, arpuPct: 40, flags: { pivoted: true } },
+        effects: { clientsPct: -60, pmf: 20, team: -6, arpuPct: 30, flags: { pivoted: true } },
         text: 'Tu annonces le pivot à tes restaurants. Beaucoup partent. Les cantines, elles, signent vite.',
+        lesson: 'Pivoter, c’est accepter de perdre des clients pour trouver le bon marché.',
       },
       {
         label: 'Rester sur les restaurants',
@@ -826,7 +912,7 @@ export const EVENTS = [
         label: 'Tester les deux en parallèle',
         hints: ['Double charge de travail', 'Tu apprends vite'],
         tags: ['product'],
-        effects: { team: -10, pmf: 8 },
+        effects: { team: -10, pmf: 7 },
         text: 'Deux cibles, deux discours, deux fois plus de réunions. Mais tu y vois plus clair.',
       },
     ],
@@ -837,7 +923,8 @@ export const EVENTS = [
     months: [6, 14],
     category: 'Concurrence',
     title: 'Un concurrent copie ton produit, 30 % moins cher',
-    text: 'Même promesse, même couleur de logo, prix cassé. Tes clients reçoivent leurs mails de prospection.',
+    text: 'Même promesse, même couleur de logo, prix cassé. Tes clients reçoivent ses mails de prospection.',
+    advice: 'Pourquoi tes clients t’ont choisi, toi, au départ ?',
     choices: [
       {
         label: 'Baisser tes prix',
@@ -852,7 +939,7 @@ export const EVENTS = [
         tags: ['product'],
         effects: { team: -4, pmf: 5 },
         outcomes: [
-          { if: { maxPmf: 44 }, effects: { clients: -2 }, text: 'Deux clients partent tester le concurrent. Les autres attendent tes nouveautés.' },
+          { if: { maxPmf: 44 }, effects: { clientsPct: -10 }, text: 'Quelques clients partent tester le concurrent. Les autres attendent tes nouveautés.' },
           { text: 'Tes clients restent. Ils veulent la qualité, pas le prix.' },
         ],
       },
@@ -861,7 +948,7 @@ export const EVENTS = [
         hints: ['Aucun effort'],
         tags: ['cash'],
         outcomes: [
-          { if: { minPmf: 50 }, text: 'Tes clients ne le remarquent même pas. Ton produit fait la différence.' },
+          { if: { minPmf: 55 }, text: 'Tes clients ne le remarquent même pas. Ton produit fait la différence.' },
           { effects: { clientsPct: -20 }, text: 'Le concurrent rafle un client sur cinq.' },
         ],
       },
@@ -869,14 +956,51 @@ export const EVENTS = [
   },
 
   {
+    id: 'postponed-deal',
+    months: [5, 16],
+    when: { minPmf: 25 },
+    category: 'Vente',
+    title: 'Ton meilleur prospect repousse la signature',
+    text: '« On valide en comité le mois prochain. Enfin, normalement. » Ça fait deux fois qu’il le dit.',
+    advice: 'Qu’est-ce qui bloque vraiment : le prix, le décideur, ou le besoin ?',
+    choices: [
+      {
+        label: 'Offrir une remise pour signer ce mois-ci',
+        hints: ['Signature plus probable', 'Tu vends moins cher'],
+        tags: ['sales'],
+        outcomes: [
+          { chance: { base: 0.55 }, effects: { clients: 1, mrrPct: -2 }, text: 'Remise de 20 % la première année. Il signe dans la foulée.' },
+          { effects: {}, text: 'Il prend note de la remise… et repousse encore.' },
+        ],
+      },
+      {
+        label: 'Attendre son comité',
+        hints: ['Aucun effort', 'Résultat dans deux mois'],
+        tags: ['cash'],
+        effects: {},
+        delayed: [{ in: 2, id: 'postponed-deal-result' }],
+        text: 'Tu mets un rappel dans ton agenda. Et tu attends.',
+      },
+      {
+        label: 'Passer à autre chose',
+        hints: ['Tu libères du temps'],
+        tags: ['product'],
+        effects: { team: 2, pmf: 1 },
+        text: 'Tu arrêtes de relancer. Ton énergie va à ceux qui disent oui.',
+      },
+    ],
+  },
+
+  {
     id: 'angel-offer',
     months: [6, 13],
-    when: { minMrr: 1250, notFlag: 'angel' },
+    weight: { bootstrap: 0.5 },
+    when: { minMrr: 1500, minPmf: 30, notFlag: 'angel' },
     category: 'Business angel',
-    speaker: 'Hélène, ancienne dirigeante de la restauration',
+    speaker: 'Hélène, business angel',
     title: '60 000 € contre 12 % de ta boîte',
-    text: 'Hélène a entendu parler de Glane par un client. Elle veut investir, vite.',
-    note: 'Business angel : particulier qui investit son argent dans des startups contre des parts.',
+    text: 'Hélène, business angel et ancienne dirigeante de la restauration, a entendu parler de {name} par un client. Elle veut investir, vite.',
+    advice: 'Combien de mois cet argent t’achète, et que feras-tu de ces mois ?',
     choices: [
       {
         label: 'Accepter',
@@ -884,6 +1008,7 @@ export const EVENTS = [
         tags: ['fundraise'],
         effects: { cash: 60000, equity: -12, flags: { angel: true } },
         text: 'Virement reçu. Hélène rejoint ton board et t’appelle tous les lundis.',
+        lesson: 'Lever, c’est acheter du temps avec des parts de ta boîte.',
       },
       {
         label: 'Négocier à 8 %',
@@ -891,7 +1016,7 @@ export const EVENTS = [
         tags: ['fundraise'],
         outcomes: [
           {
-            chance: { base: 0.2, pmf: 0.008, mrr: 0.05 },
+            chance: { base: 0.15, pmf: 0.006, mrr: 0.04 },
             effects: { cash: 60000, equity: -8, flags: { angel: true } },
             text: 'Elle accepte. Tu gardes 4 % de plus.',
           },
@@ -914,8 +1039,7 @@ export const EVENTS = [
     category: 'Financement',
     speaker: 'Ton conseiller bancaire',
     title: 'Ta banque te propose un prêt de 50 000 €',
-    text: 'Garanti par Bpifrance, remboursé sur 4 ans. La banque veut voir tes revenus récurrents.',
-    note: 'Un prêt se rembourse chaque mois : ta charge fixe augmente.',
+    text: 'Garanti par Bpifrance, remboursé sur 4 ans. La banque veut voir des revenus récurrents solides.',
     choices: [
       {
         label: 'Demander le prêt',
@@ -923,11 +1047,11 @@ export const EVENTS = [
         tags: ['fundraise'],
         outcomes: [
           {
-            if: { minMrr: 2000 },
+            if: { minMrr: 2500 },
             effects: { cash: 50000, costs: 1150, flags: { loan: true } },
             text: 'Prêt accordé. Tu rembourseras 1 150 € chaque mois.',
           },
-          { effects: { team: -2 }, text: 'Refusé : « Revenez avec 2 000 € de revenus mensuels. »' },
+          { effects: { team: -2 }, text: 'Refusé : « Revenez avec 2 500 € de revenus mensuels. »' },
         ],
       },
       {
@@ -949,6 +1073,7 @@ export const EVENTS = [
     speaker: 'Ton associé',
     title: 'Vous ne vous payez pas depuis 8 mois',
     text: 'Ton associé veut louer un appartement. Le propriétaire demande trois fiches de paie.',
+    advice: 'Une équipe qui tient sans salaire, jusqu’à quand ? Et ton runway, s’il faut payer ?',
     choices: [
       {
         label: 'Vous verser un salaire',
@@ -956,6 +1081,7 @@ export const EVENTS = [
         tags: ['team'],
         effects: { costs: 3600, team: 15, flags: { foundersPaid: true } },
         text: 'Premier salaire : 1 500 € net chacun. Vous fêtez ça au kebab d’en bas.',
+        lesson: 'Te payer alourdit ton burn. Ne pas te payer use ton équipe. Tout dépend de tes revenus.',
       },
       {
         label: 'Tenir encore quelques mois',
@@ -975,7 +1101,7 @@ export const EVENTS = [
     category: 'Réputation',
     stage: 'flash',
     title: 'Un client te clashe sur LinkedIn',
-    text: '« Glane a perdu mes commandes de la semaine. » 200 000 vues en deux jours.',
+    text: '« {name} a perdu mes données de la semaine. » 200 000 vues en deux jours.',
     choices: [
       {
         label: 'Répondre publiquement et corriger',
@@ -983,7 +1109,7 @@ export const EVENTS = [
         tags: ['product'],
         effects: { team: -5, pmf: 3 },
         outcomes: [
-          { chance: { base: 0.5 }, effects: { clients: 2 }, text: 'Ta réponse honnête est saluée. Deux restaurants te contactent.' },
+          { chance: { base: 0.3 }, effects: { clients: 1 }, text: 'Ta réponse honnête est saluée. Un prospect te contacte et signe.' },
           { text: 'La tempête passe. Le bug est corrigé.' },
         ],
       },
@@ -1007,7 +1133,7 @@ export const EVENTS = [
   {
     id: 'outage',
     months: [6, 17],
-    when: { minClients: 8 },
+    when: { minClients: 6 },
     category: 'Incident',
     stage: 'alert',
     title: 'Panne géante un vendredi soir',
@@ -1019,7 +1145,7 @@ export const EVENTS = [
         tags: ['product'],
         effects: { team: -10 },
         outcomes: [
-          { if: { role: 'dev' }, effects: { team: 5 }, text: 'Ta dev prend le relais. La nuit est courte mais partagée.' },
+          { if: { role: 'dev' }, effects: { team: 5 }, text: 'Ton équipe tech prend le relais. La nuit est courte mais partagée.' },
           { text: 'Tu répares à 4 h du matin. Tu dors dans le bureau.' },
         ],
       },
@@ -1043,14 +1169,46 @@ export const EVENTS = [
   },
 
   {
+    id: 'onboarding-drag',
+    months: [5, 16],
+    when: { minClients: 6, maxPmf: 60 },
+    category: 'Clients',
+    title: 'Tes nouveaux clients mettent 3 semaines à démarrer',
+    text: 'Installation, formation, import des données : chaque nouveau client te prend des heures. Certains abandonnent avant d’avoir commencé.',
+    choices: [
+      {
+        label: 'Simplifier l’onboarding',
+        hints: ['Charge produit', 'Adoption plus rapide'],
+        tags: ['product'],
+        effects: { team: -5, pmf: 4 },
+        text: 'Un guide pas à pas et un import automatique. Les nouveaux démarrent en deux jours.',
+      },
+      {
+        label: 'Payer un freelance pour accompagner les clients',
+        hints: ['Coût : 2 500 €', 'L’équipe souffle'],
+        tags: ['cash', 'team'],
+        effects: { cash: -2500, team: 4, pmf: 1 },
+        text: 'Un freelance customer success gère les installations. Ton équipe respire.',
+      },
+      {
+        label: 'Laisser comme ça',
+        hints: ['Aucun effort', 'Des clients abandonnent'],
+        tags: ['cash'],
+        effects: { clientsPct: -10 },
+        text: 'Deux clients abandonnent pendant l’installation. Tu ne sauras jamais s’ils auraient aimé le produit.',
+      },
+    ],
+  },
+
+  {
     id: 'investor-prep',
     months: [7, 14],
+    paths: ['saas', 'deeptech'],
     when: { notFlag: 'investorReady' },
     category: 'Incubateur',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     title: 'Le programme levée de fonds de l’incubateur ouvre',
     text: 'Six semaines pour préparer ton deck, tes chiffres et ton pitch face à des investisseurs.',
-    note: 'Deck : présentation qui résume ta startup pour les investisseurs.',
     choices: [
       {
         label: 'Suivre le programme',
@@ -1077,12 +1235,12 @@ export const EVENTS = [
     text: 'Un fondateur de ton batch jure que ça lui ramène un client par semaine.',
     choices: [
       {
-        label: 'Te lancer',
+        label: 'T’y mettre',
         hints: ['Du temps chaque semaine', 'Effet lent'],
         tags: ['growth'],
         effects: { team: -5 },
         delayed: [{ in: 3, id: 'content-effect' }],
-        text: 'Premier post : « Ce que 15 restaurateurs m’ont appris sur le gaspillage. » 41 likes.',
+        text: 'Premier post : « Ce que 15 clients m’ont appris sur le gaspillage. » 41 likes.',
       },
       {
         label: 'Pas pour toi',
@@ -1097,11 +1255,12 @@ export const EVENTS = [
   {
     id: 'partnership',
     months: [7, 15],
+    paths: ['saas', 'bootstrap'],
     when: { minPmf: 30 },
     category: 'Partenariat',
     speaker: 'Responsable partenariats, Tiroir (logiciels de caisse)',
-    title: 'Un éditeur de caisses veut intégrer Glane',
-    text: 'Leurs 40 commerciaux vendraient Glane avec leurs caisses. Ils prennent 30 % de commission.',
+    title: 'Un éditeur de caisses veut intégrer {name}',
+    text: 'Leurs 40 commerciaux vendraient {name} avec leurs caisses. Ils prennent 30 % de commission.',
     choices: [
       {
         label: 'Signer le partenariat',
@@ -1124,6 +1283,7 @@ export const EVENTS = [
   {
     id: 'referral',
     months: [5, 13],
+    paths: ['saas', 'bootstrap'],
     when: { minClients: 5 },
     category: 'Acquisition',
     title: 'Et si tes clients te recommandaient ?',
@@ -1134,7 +1294,7 @@ export const EVENTS = [
         hints: ['Petit coût', 'Dépend de la satisfaction de tes clients'],
         tags: ['growth'],
         outcomes: [
-          { if: { minPmf: 45 }, effects: { clients: 4, cash: -1000 }, text: 'Tes clients adorent : 4 filleuls en un mois.' },
+          { if: { minPmf: 50 }, chance: { base: 0.3, pmf: 0.006 }, effects: { clients: 3, cash: -750 }, text: 'Tes clients adorent : 3 filleuls en un mois.' },
           { effects: { clients: 1, cash: -250 }, text: 'Un seul parrainage. Tes clients ne sont pas encore fans.' },
         ],
       },
@@ -1168,7 +1328,7 @@ export const EVENTS = [
         tags: ['cash'],
         effects: { team: -1 },
         outcomes: [
-          { chance: { base: 0.4 }, effects: { pmf: 2 }, text: 'Au café, un autre fondateur te donne une idée produit géniale.' },
+          { chance: { base: 0.4 }, effects: { pmf: 2 }, text: 'À la machine à café, un autre fondateur te donne une idée produit géniale.' },
           { text: 'Casque antibruit et réunions dans le couloir. Ça fait le job.' },
         ],
       },
@@ -1178,7 +1338,7 @@ export const EVENTS = [
   {
     id: 'late-payment',
     months: [6, 15],
-    when: { minClients: 6 },
+    when: { minClients: 4 },
     category: 'Trésorerie',
     title: 'Ton plus gros client paie avec 60 jours de retard',
     text: '1 500 € de factures en attente. Il « attend la validation de la compta ».',
@@ -1198,7 +1358,8 @@ export const EVENTS = [
         tags: ['sales'],
         effects: { cash: -1500 },
         delayed: [{ in: 2, id: 'late-payment-paid' }],
-        text: 'Tu avances la trésorerie. Chiffre d’affaires ne veut pas dire cash sur le compte.',
+        text: 'Tu avances la trésorerie. L’argent arrivera, un jour.',
+        lesson: 'Chiffre d’affaires ne veut pas dire cash sur le compte.',
       },
     ],
   },
@@ -1236,10 +1397,10 @@ export const EVENTS = [
     id: 'demo-day',
     months: [10, 14],
     category: 'Incubateur',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     stage: 'breaking',
     title: 'Demo Day : 5 minutes devant 200 personnes',
-    text: 'Investisseurs, corporates, presse. Chaque startup du batch pitche sur scène.',
+    text: 'Investisseurs, corporates, presse. Chaque startup du batch pitche sur scène. {mentor} te garde une place.',
     choices: [
       {
         label: 'Pitcher sur scène',
@@ -1248,9 +1409,9 @@ export const EVENTS = [
         effects: { team: -4 },
         outcomes: [
           {
-            chance: { base: 0.2, pmf: 0.006, mrr: 0.04 },
+            chance: { base: 0.15, pmf: 0.005, mrr: 0.03 },
             effects: { flags: { investorContact: true, investorReady: true }, clients: 1 },
-            text: 'Standing ovation. Deux fonds demandent ton deck, un restaurateur signe dans la salle.',
+            text: 'Standing ovation. Deux fonds demandent ton deck, un client signe dans la salle.',
           },
           { effects: { flags: { investorContact: true } }, text: 'Bon pitch, salle polie. Un investisseur garde ta carte.' },
         ],
@@ -1270,20 +1431,21 @@ export const EVENTS = [
 
   {
     id: 'seed-round',
-    months: [11, 17],
-    when: { notFlag: 'raised' },
-    weight: 4,
+    months: [9, 17],
+    paths: ['saas', 'deeptech'],
+    when: { notFlag: ['raised', 'fundraising'], minMrr: 2000 },
+    weight: 3,
     category: 'Levée de fonds',
-    speaker: 'Léa, coach EDHEC Entrepreneurs',
+    speaker: 'mentor',
     title: 'Des fonds VC acceptent de te rencontrer',
     text: 'Trois fonds Seed veulent voir tes chiffres. Une levée, c’est deux mois de rendez-vous et beaucoup de refus.',
-    note: 'Seed : première levée auprès de fonds, souvent entre 500 000 € et 2 M€.',
+    advice: 'Qu’est-ce qu’un fonds verrait dans tes chiffres des 3 derniers mois : une courbe qui monte, ou une promesse ?',
     choices: [
       {
         label: 'Lancer la levée',
         hints: ['Deux mois de rendez-vous', 'Tout dépend de ta traction', 'Équipe moins disponible'],
         tags: ['fundraise'],
-        effects: { team: -8 },
+        effects: { team: -8, flags: { fundraising: true } },
         delayed: [{ in: 2, id: 'seed-result' }],
         text: 'Deck envoyé, agenda rempli. Tu répètes ton pitch sous la douche.',
       },
@@ -1300,14 +1462,15 @@ export const EVENTS = [
   {
     id: 'international',
     months: [12, 17],
+    paths: ['saas'],
     when: { minMrr: 4000 },
     category: 'International',
     speaker: 'Javier, distributeur à Madrid',
-    title: 'Un distributeur veut Glane en Espagne',
+    title: 'Un distributeur veut {name} en Espagne',
     text: 'Madrid compte 15 000 restaurants. Javier a le réseau, toi le produit. Il faut traduire, adapter, voyager.',
     choices: [
       {
-        label: 'Te lancer en Espagne',
+        label: 'Ouvrir l’Espagne',
         hints: ['Coût : 8 000 €', 'Équipe dispersée', 'Gros marché'],
         tags: ['growth'],
         effects: { cash: -8000, team: -8 },
@@ -1327,21 +1490,23 @@ export const EVENTS = [
   {
     id: 'big-account',
     months: [12, 17],
+    paths: ['saas'],
     when: { minPmf: 45 },
     category: 'Grand compte',
     speaker: 'Directeur achats, chaîne Brasserie Nationale',
     stage: 'breaking',
-    title: 'Une chaîne de 200 restaurants veut Glane',
-    text: '60 000 € par an. Condition : aucune chaîne concurrente chez toi pendant 2 ans.',
-    note: 'Exclusivité : tu t’interdis de vendre à certains clients.',
+    title: 'Une chaîne de 200 restaurants veut {name}',
+    text: 'Un contrat énorme, avec une exclusivité : aucune chaîne concurrente chez toi pendant 2 ans.',
+    advice: 'Si ce client part dans un an, que reste-t-il de ton MRR ?',
     choices: [
       {
-        label: 'Signer avec l’exclusivité',
-        hints: ['Énorme contrat', 'Tu dépends d’un seul client'],
+        label: 'Accepter l’exclusivité',
+        hints: ['Énorme contrat possible', 'Tu dépends d’un seul client', 'Signature dans 2 mois'],
         tags: ['corporate'],
-        effects: { clients: 1, mrr: 4750, team: -8 },
-        delayed: [{ in: 4, id: 'big-account-risk' }],
-        text: 'Contrat signé : 5 000 €/mois. Ton plus gros client, de loin.',
+        effects: { team: -8 },
+        delayed: [{ in: 2, id: 'big-account-sign' }],
+        text: 'Accord de principe. Leur service juridique t’envoie 40 pages de contrat.',
+        lesson: 'Un gros client rassure. Un client qui pèse la moitié de ton MRR te rend dépendant.',
       },
       {
         label: 'Négocier sans exclusivité',
@@ -1349,9 +1514,9 @@ export const EVENTS = [
         tags: ['corporate', 'sales'],
         outcomes: [
           {
-            chance: { base: 0.2, pmf: 0.006 },
-            effects: { clients: 1, mrr: 3750, team: -5 },
-            text: 'Ils acceptent sans exclusivité, pour un prix un peu plus bas. 4 000 €/mois.',
+            chance: { base: 0.1, pmf: 0.004, flags: { corporateReady: 0.1 } },
+            effects: { clients: 1, mrr: 2750, team: -5, flags: { corporateClient: true } },
+            text: 'Ils acceptent sans exclusivité, pour un prix plus bas. Contrat signé.',
           },
           { text: 'Ils partent chez un concurrent qui accepte l’exclusivité.' },
         ],
@@ -1369,6 +1534,7 @@ export const EVENTS = [
   {
     id: 'competitor-raise',
     months: [11, 17],
+    paths: ['saas', 'deeptech'],
     category: 'Concurrence',
     stage: 'flash',
     title: 'Ton concurrent vient de lever 20 M€',
@@ -1378,8 +1544,8 @@ export const EVENTS = [
         label: 'Accélérer : doubler ton budget marketing',
         hints: ['Charge fixe en hausse', 'Course à la croissance'],
         tags: ['growth'],
-        effects: { costs: 3000, clients: 3 },
-        text: 'Pubs, salons, sponsoring. Tu gagnes 3 clients et un budget mensuel bien plus lourd.',
+        effects: { costs: 3000, clients: 2 },
+        text: 'Pubs, salons, sponsoring. Tu gagnes 2 clients et un budget mensuel bien plus lourd.',
       },
       {
         label: 'Te concentrer sur ta niche',
@@ -1388,7 +1554,7 @@ export const EVENTS = [
         effects: { pmf: 5 },
         outcomes: [
           { if: { maxPmf: 49 }, effects: { clientsPct: -15 }, text: 'Quelques clients partent chez lui. Tes fidèles restent.' },
-          { text: 'Tes clients restent : il vise les chaînes, toi les indépendants.' },
+          { text: 'Tes clients restent : il vise les gros comptes, toi ta niche.' },
         ],
       },
       {
@@ -1398,7 +1564,7 @@ export const EVENTS = [
         outcomes: [
           {
             if: { minPmf: 55, minMrr: 5000 },
-            chance: { base: 0.35 },
+            chance: { base: 0.3 },
             effects: { flags: { acquisitionInterest: true } },
             text: 'Leur CEO te rappelle. « Parlons-en au prochain trimestre. »',
           },
@@ -1420,7 +1586,7 @@ export const EVENTS = [
         label: 'Recruter une head of ops',
         hints: ['Charge fixe', 'Organisation solide'],
         tags: ['recruit', 'team'],
-        effects: { hire: { role: 'ops', label: 'Head of ops', cost: 4000 }, team: 14 },
+        effects: { hire: { role: 'ops', label: 'Julie, head of ops', cost: 4000 }, team: 12 },
         text: 'Julie arrive, installe trois rituels et un tableau de bord. Le calme revient.',
       },
       {
@@ -1447,8 +1613,7 @@ export const EVENTS = [
     category: 'Équipe',
     stage: 'flash',
     title: 'Ta meilleure dev reçoit une offre d’un grand groupe',
-    text: 'Salaire +40 %, tickets resto, télétravail. Elle hésite.',
-    note: 'BSPCE : bons qui permettent aux salariés d’acheter des parts de la startup à prix fixé.',
+    text: 'Salaire +40 %, tickets resto, télétravail. Elle hésite. Tu peux t’aligner, ou lui proposer des BSPCE.',
     choices: [
       {
         label: 'Faire une contre-offre salariale',
@@ -1522,11 +1687,11 @@ export const EVENTS = [
         effects: { team: -2 },
         outcomes: [
           {
-            chance: { base: 0.25, pmf: 0.008 },
-            effects: { clients: 3, flags: { investorContact: true } },
-            text: 'L’article tourne partout. 3 restaurants t’écrivent, un fonds aussi.',
+            chance: { base: 0.15, pmf: 0.006 },
+            effects: { clients: 2, flags: { investorContact: true } },
+            text: 'L’article tourne partout. 2 clients t’écrivent, un fonds aussi.',
           },
-          { effects: { clients: 1 }, text: 'Belle photo, bel article. Un client, et beaucoup de likes.' },
+          { effects: { flags: { investorContact: true } }, text: 'Belle photo, bel article. Beaucoup de likes, et un investisseur qui te suit sur LinkedIn.' },
         ],
       },
       {
@@ -1542,6 +1707,7 @@ export const EVENTS = [
   {
     id: 'ai-feature',
     months: [10, 18],
+    paths: ['saas', 'bootstrap'],
     category: 'Produit',
     title: 'Tout le monde ajoute de l’IA. Et toi ?',
     text: 'Tes concurrents affichent « IA » partout. Tes clients te posent la question.',
@@ -1552,7 +1718,7 @@ export const EVENTS = [
         tags: ['product'],
         effects: { cash: -6000, team: -3 },
         outcomes: [
-          { chance: { base: 0.3, pmf: 0.006 }, effects: { pmf: 8 }, text: 'Tes prévisions de commandes deviennent bluffantes. Tes clients jettent 20 % de moins.' },
+          { chance: { base: 0.25, pmf: 0.006 }, effects: { pmf: 7 }, text: 'Tes prévisions de commandes deviennent bluffantes. Tes clients jettent 20 % de moins.' },
           { effects: { pmf: 1 }, text: 'Démo impressionnante, usage faible. Tes clients voulaient surtout que ça marche.' },
         ],
       },
@@ -1560,8 +1726,8 @@ export const EVENTS = [
         label: 'Écrire « IA » sur ton site, sans rien changer',
         hints: ['Aucun coût', 'Effet marketing'],
         tags: ['growth'],
-        effects: { clients: 2, pmf: -2 },
-        text: 'Deux nouveaux clients. Ils cherchent l’IA dans le produit. Ils ne la trouvent pas.',
+        effects: { clients: 1, pmf: -2 },
+        text: 'Un nouveau client. Il cherche l’IA dans le produit. Il ne la trouve pas.',
       },
       {
         label: 'Rester sur ce qui marche',
@@ -1576,14 +1742,13 @@ export const EVENTS = [
   {
     id: 'acquisition-offer',
     months: [13, 18],
+    paths: ['saas', 'bootstrap'],
     when: { minPmf: 65, minMrr: 10000 },
-    weight: 1,
     category: 'Rachat',
     speaker: 'CEO d’un grand éditeur de logiciels pour la restauration',
     stage: 'breaking',
-    title: 'Un leader du marché veut racheter Glane',
-    text: 'Il propose de racheter 100 % de ta startup. Ton équipe serait intégrée, ton produit aussi.',
-    note: 'Exit : vente de la startup. Rare, surtout après 18 mois.',
+    title: 'Un leader du marché veut racheter {name}',
+    text: 'Il propose de racheter 100 % de ta startup. Ton équipe serait intégrée, ton produit aussi. Une exit après 18 mois, c’est rare.',
     choices: [
       {
         label: 'Accepter l’offre',
@@ -1605,14 +1770,14 @@ export const EVENTS = [
   {
     id: 'acquisition-offer-early',
     months: [13, 18],
+    paths: ['saas', 'deeptech'],
     when: { flag: 'acquisitionInterest', minPmf: 55, minMrr: 6000 },
     weight: 2,
     category: 'Rachat',
     speaker: 'CEO de ton concurrent',
     stage: 'breaking',
     title: 'Ton concurrent veut te racheter',
-    text: 'Ton coup de poker a marché. Il préfère t’acheter que te combattre.',
-    note: 'Exit : vente de la startup. Rare, surtout après 18 mois.',
+    text: 'Ton coup de poker a marché. Il préfère t’acheter que te combattre. Une exit, déjà.',
     choices: [
       {
         label: 'Accepter l’offre',
@@ -1642,8 +1807,8 @@ export const EVENTS = [
     speaker: 'Ton expert-comptable',
     stage: 'alert',
     title: 'Il te reste moins de 2 mois de cash',
-    text: 'À ce rythme, ton compte passe dans le rouge très bientôt. Il faut agir ce mois-ci.',
-    note: 'Runway : nombre de mois avant de tomber à 0 €, si rien ne change.',
+    text: 'Ton runway passe sous 2 mois : ton compte sera dans le rouge très bientôt. Il faut agir ce mois-ci.',
+    advice: 'Quelle option te donne le plus de mois de survie, et laquelle abîme le moins ta capacité à vendre ?',
     choices: [
       {
         label: 'Licencier et couper les coûts',
@@ -1652,13 +1817,14 @@ export const EVENTS = [
         tags: ['cash'],
         effects: { fire: 'all', team: -15 },
         text: 'Tu annonces les départs un lundi matin. Ton burn fond. L’ambiance aussi.',
+        lesson: 'Couper les coûts sauve ton runway, mais casse ton élan. Mieux vaut ralentir avant d’en arriver là.',
       },
       {
         label: 'Couper les outils et abonnements',
         if: { maxStaff: 0 },
         hints: ['Petite économie', 'Le produit en souffre un peu'],
         tags: ['cash'],
-        effects: { costs: -600, pmf: -2, team: -3 },
+        effects: { costs: -500, pmf: -2, team: -3 },
         text: 'Adieu le CRM premium et les serveurs surdimensionnés.',
       },
       {
@@ -1676,7 +1842,7 @@ export const EVENTS = [
         tags: ['fundraise'],
         outcomes: [
           {
-            chance: { base: 0.3, pmf: 0.01 },
+            chance: { base: 0.25, pmf: 0.008 },
             effects: { cash: 30000, equity: -6 },
             text: 'Elle remet 30 000 € au pot. « Dernière fois », précise-t-elle.',
           },
@@ -1703,6 +1869,7 @@ export const EVENTS = [
     stage: 'flash',
     title: 'Ton associé veut quitter la boîte',
     text: '« Je dors 5 heures par nuit depuis des mois. Je n’en peux plus. » Il pose sa démission sur ton bureau.',
+    advice: 'Qu’est-ce qui l’a épuisé : la charge, le sens, ou le fait de ne pas être écouté ?',
     choices: [
       {
         label: 'Tout mettre en pause 2 semaines',
@@ -1750,7 +1917,7 @@ export const EVENTS = [
         hints: ['Quelques leads'],
         tags: ['sales'],
         outcomes: [
-          { chance: { base: 0.5 }, effects: { clients: 1, team: -2 }, text: 'Un restaurant de plus.' },
+          { chance: { base: 0.35, pmf: 0.005 }, effects: { clients: 1, team: -2 }, text: 'Un client de plus.' },
           { effects: { team: -2 }, text: 'Des rendez-vous, pas encore de signature.' },
         ],
       },
@@ -1764,3 +1931,5 @@ export const EVENTS = [
     ],
   },
 ];
+
+export const EVENTS = [...SHARED_EVENTS, ...PEOPLE_EVENTS, ...PATH_EVENTS];

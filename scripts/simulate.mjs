@@ -1,86 +1,64 @@
-// Simulation d'équilibrage : fait jouer des centaines de parties à plusieurs stratégies-types.
-// Usage : npm run simulate            (500 parties par stratégie)
-//         npm run simulate -- 2000    (plus de parties)
+// Simulation d'équilibrage : fait jouer des centaines de parties à plusieurs stratégies-types,
+// sur chacun des trois parcours.
+// Usage : npm run simulate                (400 parties par stratégie et par parcours)
+//         npm run simulate -- 2000        (plus de parties)
+//         npm run simulate -- 1000 saas   (un seul parcours)
 //
-// Lis le tableau ainsi :
-//   - "positive" = fins Rentable + Levée + Exit
-//   - "mort M" = mois médian de la défaite, pour les parties perdues
-// Cibles : aucune stratégie > 70 % de fins positives, le dépensier meurt tôt,
-// le prudent ne gagne presque jamais, l'équilibré gagne souvent sans que ce soit garanti.
+// Colonnes :
+//   gagne    fins positives (Rentable + Levée + Exit)
+//   mort     défaites (cash ou équipe), avec le mois moyen de la mort
+//   MRR méd / p90   MRR final médian et du 10e meilleur pourcentage
+//   ≥30k     part des parties qui finissent à 30 000 € de MRR ou plus
+// Cibles : aucune stratégie dominante, un premier essai (aléatoire) perd souvent,
+// 30 000 € de MRR reste rare, chaque parcours a au moins deux stratégies viables.
 
 import { newGame, chooseOption, nextMonth, currentEvent, visibleChoices, runway } from '../src/game/engine.js';
 import { endingType } from '../src/game/endings.js';
+import { PATH_ORDER } from '../src/data/paths.js';
 
-const RUNS = Number(process.argv[2]) || 500;
+const RUNS = Number(process.argv[2]) || 400;
+const ONLY = process.argv[3];
 
 const has = (ch, tag) => (ch.tags || []).includes(tag);
 const cashCost = (ch) => -Math.min(0, ch.effects?.cash || 0);
 const monthlyCost = (ch) => [].concat(ch.effects?.hire || []).reduce((s, h) => s + h.cost, 0) + Math.max(0, ch.effects?.costs || 0);
+const firstWith = (choices, tags, ok = () => true) => {
+  for (const tag of tags) {
+    const i = choices.findIndex((c) => has(c, tag) && ok(c));
+    if (i >= 0) return i;
+  }
+  return -1;
+};
+const or = (i, fallback) => (i >= 0 ? i : fallback);
 
 // Chaque stratégie reçoit l'état et les choix visibles, renvoie un index.
 const STRATEGIES = {
+  // Un joueur qui découvre et clique un peu au hasard.
   aleatoire: (s, choices, rnd) => Math.floor(rnd() * choices.length),
 
-  depensier: (s, choices) => {
-    const i = choices.findIndex((c) => has(c, 'growth') || has(c, 'recruit') || has(c, 'corporate'));
-    return i >= 0 ? i : 0;
-  },
+  // Full sales : vend tout le temps, quel que soit l'état du produit.
+  full_sales: (s, choices) => or(firstWith(choices, ['sales', 'growth', 'corporate']), 0),
 
-  prudent: (s, choices) => {
-    const i = choices.findIndex((c) => has(c, 'cash'));
-    return i >= 0 ? i : choices.length - 1;
-  },
+  // Full product : ne travaille que le produit.
+  full_produit: (s, choices) => or(firstWith(choices, ['product']), 0),
 
-  sales: (s, choices) => {
-    for (const tag of ['sales', 'growth', 'corporate']) {
-      const i = choices.findIndex((c) => has(c, tag));
-      if (i >= 0) return i;
-    }
-    return 0;
-  },
+  // Gros dépensier : pub, salons, recrutements, grands comptes.
+  depensier: (s, choices) => or(firstWith(choices, ['growth', 'recruit', 'corporate']), 0),
 
-  produit: (s, choices) => {
-    const i = choices.findIndex((c) => has(c, 'product'));
-    return i >= 0 ? i : 0;
-  },
+  // Ultra prudent : ne dépense rien.
+  prudent: (s, choices) => or(firstWith(choices, ['cash']), choices.length - 1),
 
-  levee: (s, choices) => {
-    for (const tag of ['fundraise', 'growth', 'recruit']) {
-      const i = choices.findIndex((c) => has(c, tag));
-      if (i >= 0) return i;
-    }
-    return 0;
-  },
+  // Recrute dès qu'il peut.
+  recruteur: (s, choices) => or(firstWith(choices, ['recruit']), or(firstWith(choices, ['product', 'sales']), 0)),
 
-  // Vend beaucoup, mais seulement après avoir travaillé son PMF.
-  sales_pmf: (s, choices) => {
-    const affordable = (c) => monthlyCost(c) === 0 || s.mrr >= (s.costs + monthlyCost(c)) * 0.6;
-    const order = s.pmf < 40 ? ['product', 'sales', 'cash'] : ['sales', 'growth', 'corporate', 'product'];
-    for (const tag of order) {
-      const i = choices.findIndex((c) => has(c, tag) && affordable(c));
-      if (i >= 0) return i;
-    }
-    return choices.length - 1;
-  },
+  // Lève dès qu'il peut.
+  leveur: (s, choices) => or(firstWith(choices, ['fundraise']), or(firstWith(choices, ['growth', 'recruit']), 0)),
 
-  // Vise une levée avec de la traction : PMF d'abord, puis préparation et levée.
-  levee_traction: (s, choices) => {
-    const affordable = (c) => monthlyCost(c) === 0 || s.mrr >= (s.costs + monthlyCost(c)) * 0.6 || s.flags.raised;
-    const order = s.pmf < 45 ? ['product', 'fundraise', 'sales', 'cash'] : ['fundraise', 'sales', 'growth', 'product'];
-    for (const tag of order) {
-      const i = choices.findIndex((c) => has(c, tag) && affordable(c));
-      if (i >= 0) return i;
-    }
-    return choices.length - 1;
-  },
-
-  // Choisit toujours l'option qui coûte le plus d'énergie à l'équipe.
-  rush: (s, choices) => {
-    let worst = 0;
-    choices.forEach((c, i) => {
-      if ((c.effects?.team || 0) < (choices[worst].effects?.team || 0)) worst = i;
-    });
-    return worst;
+  // Bootstrap : jamais d'investisseurs, recrute seulement si les revenus paient le salaire.
+  bootstrap: (s, choices) => {
+    const ok = (c) => !has(c, 'fundraise') && (monthlyCost(c) === 0 || s.mrr >= s.costs + monthlyCost(c));
+    const order = s.pmf < 40 ? ['product', 'sales', 'cash'] : ['sales', 'product', 'cash', 'team'];
+    return or(firstWith(choices, order, ok), or(choices.findIndex(ok), choices.length - 1));
   },
 
   // Un joueur raisonnable : produit d'abord, surveille son runway, recrute quand les revenus suivent.
@@ -121,58 +99,75 @@ function mulberry(seed) {
   };
 }
 
-function play(strategy, seed) {
+function play(strategy, seed, path) {
   const rnd = mulberry(seed * 7919);
-  let s = newGame(seed);
+  let s = newGame(seed, undefined, { path });
   let turns = 0;
   while (s.phase !== 'ended' && turns < 60) {
     const choices = visibleChoices(s, currentEvent(s));
-    s = chooseOption(s, strategy(s, choices, rnd), undefined);
+    s = chooseOption(s, strategy(s, choices, rnd));
     s = nextMonth(s);
     turns++;
   }
   return s;
 }
 
-const median = (xs) => {
-  if (!xs.length) return '-';
+const quantile = (xs, q) => {
+  if (!xs.length) return 0;
   const a = [...xs].sort((x, y) => x - y);
-  return a[Math.floor(a.length / 2)];
+  return a[Math.min(a.length - 1, Math.floor(a.length * q))];
 };
-const pct = (n) => `${Math.round((n / RUNS) * 100)}%`.padStart(4);
+const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+const pct = (n, d = RUNS) => `${Math.round((n / d) * 100)}%`;
+const k = (n) => (Math.abs(n) >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(Math.round(n)));
 
-console.log(`\n${RUNS} parties par stratégie\n`);
-console.log('stratégie   positive  rentable levée  exit  debout  mort cash  mort équipe  mort M  MRR fin  events/run');
-for (const [name, strat] of Object.entries(STRATEGIES)) {
-  const counts = { profitable: 0, funded: 0, exit: 0, survivor: 0, cash: 0, team: 0 };
-  const deathMonths = [];
-  const mrrs = [];
-  const eventIds = new Set();
-  let quiet = 0;
-  for (let i = 1; i <= RUNS; i++) {
-    const s = play(strat, i);
-    const type = endingType(s);
-    counts[type]++;
-    if (type === 'cash' || type === 'team') deathMonths.push(s.month);
-    mrrs.push(s.mrr);
-    s.history.forEach((h) => eventIds.add(h.eventId));
-    quiet += s.history.filter((h) => h.eventId === 'quiet-month').length;
-  }
-  const positive = counts.profitable + counts.funded + counts.exit;
+for (const path of PATH_ORDER.filter((p) => !ONLY || p === ONLY)) {
+  console.log(`\n=== ${path.toUpperCase()} : ${RUNS} parties par stratégie ===\n`);
   console.log(
-    [
-      name.padEnd(11),
-      pct(positive).padStart(8),
-      pct(counts.profitable).padStart(9),
-      pct(counts.funded).padStart(6),
-      pct(counts.exit).padStart(5),
-      pct(counts.survivor).padStart(7),
-      pct(counts.cash).padStart(10),
-      pct(counts.team).padStart(12),
-      String(median(deathMonths)).padStart(7),
-      String(median(mrrs)).padStart(8),
-      `${eventIds.size} ids, ${(quiet / RUNS).toFixed(1)} mois calmes`.padStart(12),
-    ].join(' '),
+    ['stratégie', 'gagne', 'rent.', 'levée', 'exit', 'debout', 'mort', 'mort M', 'cash moy', 'MRR méd', 'MRR p90', '≥30k', 'PMF', 'équipe', 'clients'].map((h, i) => (i === 0 ? h.padEnd(13) : h.padStart(8))).join(''),
   );
+  for (const [name, strat] of Object.entries(STRATEGIES)) {
+    const counts = { profitable: 0, funded: 0, exit: 0, survivor: 0, cash: 0, team: 0 };
+    const deathMonths = [];
+    const mrrs = [];
+    const cash = [];
+    const pmf = [];
+    const team = [];
+    const clients = [];
+    let big = 0;
+    for (let i = 1; i <= RUNS; i++) {
+      const s = play(strat, i, path);
+      const type = endingType(s);
+      counts[type]++;
+      if (type === 'cash' || type === 'team') deathMonths.push(s.month);
+      mrrs.push(s.mrr);
+      cash.push(s.cash);
+      pmf.push(s.pmf);
+      team.push(s.team);
+      clients.push(s.clients);
+      if (s.mrr >= 30000) big++;
+    }
+    const positive = counts.profitable + counts.funded + counts.exit;
+    const deaths = counts.cash + counts.team;
+    console.log(
+      [
+        name.padEnd(13),
+        pct(positive).padStart(8),
+        pct(counts.profitable).padStart(8),
+        pct(counts.funded).padStart(8),
+        pct(counts.exit).padStart(8),
+        pct(counts.survivor).padStart(8),
+        pct(deaths).padStart(8),
+        (deathMonths.length ? avg(deathMonths).toFixed(1) : '-').padStart(8),
+        k(avg(cash)).padStart(8),
+        k(quantile(mrrs, 0.5)).padStart(8),
+        k(quantile(mrrs, 0.9)).padStart(8),
+        pct(big).padStart(8),
+        avg(pmf).toFixed(0).padStart(8),
+        avg(team).toFixed(0).padStart(8),
+        avg(clients).toFixed(1).padStart(8),
+      ].join(''),
+    );
+  }
 }
 console.log('');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createStorage } from '../src/game/storage.js';
+import { createStorage, SAVE_VERSION } from '../src/game/storage.js';
 
 function memory() {
   const data = {};
@@ -69,7 +69,7 @@ describe('records', () => {
 describe('current run', () => {
   it('saves and restores an unfinished run', () => {
     const st = createStorage(memory());
-    st.saveCurrent({ version: 1, month: 4, phase: 'event' });
+    st.saveCurrent({ version: SAVE_VERSION, month: 4, phase: 'event' });
     expect(st.loadCurrent().month).toBe(4);
     st.clearCurrent();
     expect(st.loadCurrent()).toBeNull();
@@ -77,7 +77,36 @@ describe('current run', () => {
 
   it('drops a save from another version', () => {
     const st = createStorage(memory());
-    st.saveCurrent({ version: 0, month: 4, phase: 'event' });
+    st.saveCurrent({ version: SAVE_VERSION - 1, month: 4, phase: 'event' });
     expect(st.loadCurrent()).toBeNull();
+  });
+});
+
+describe('V2 records', () => {
+  it('keeps milestones, played paths and the last startup across runs', () => {
+    const st = createStorage(memory());
+    st.saveRun(run({ path: 'saas', name: 'Glane', milestones: ['first-client'] }));
+    st.saveRun(run({ path: 'bootstrap', name: 'Popote', milestones: ['first-client', 'mrr-1k'] }));
+    const r = st.loadRecords();
+    expect(r.milestones).toEqual(['first-client', 'mrr-1k']);
+    expect(r.pathsPlayed).toEqual(['saas', 'bootstrap']);
+    expect(r.lastPath).toBe('bootstrap');
+    expect(r.lastName).toBe('Popote');
+  });
+
+  it('upgrades V1 records without the new fields', () => {
+    const m = memory();
+    m.setItem('sig.records.v1', JSON.stringify({ runs: [], totalRuns: 3, bestMonths: 9, bestMrr: 0, endings: ['cash'] }));
+    const r = createStorage(m).loadRecords();
+    expect(r.totalRuns).toBe(3);
+    expect(r.milestones).toEqual([]);
+    expect(r.pathsPlayed).toEqual([]);
+  });
+
+  it('remembers that the tutorial was seen', () => {
+    const st = createStorage(memory());
+    expect(st.tutorialDone()).toBe(false);
+    st.setTutorialDone();
+    expect(st.tutorialDone()).toBe(true);
   });
 });

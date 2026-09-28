@@ -3,13 +3,16 @@
 
 import { CONFIG } from './config.js';
 import { roll, randomRound } from './rng.js';
+import { fill } from './format.js';
 import { EVENTS } from '../data/events.js';
 import { CALLBACKS } from '../data/callbacks.js';
 import { NEWS } from '../data/news.js';
+import { PATHS, pathOf } from '../data/paths.js';
+import { MENTORS, GENERIC_ADVICE, ADVICE_PER_RUN } from '../data/characters.js';
+import { MILESTONES } from '../data/milestones.js';
 import { SAVE_VERSION } from './storage.js';
 
 export const DEFAULT_CONTENT = { events: EVENTS, callbacks: CALLBACKS, news: NEWS };
-
 
 const clamp = (x, min, max) => Math.min(max, Math.max(min, x));
 
@@ -34,8 +37,23 @@ export function headcount(s) {
   return CONFIG.founders + s.staff.length;
 }
 
-function staffCount(s, role) {
-  return s.staff.filter((p) => p.role === role).length;
+// Une recrue devient efficace après son intégration.
+// L'atelier recrutement de l'incubateur raccourcit l'intégration d'un mois.
+export function isOnboarded(s, person) {
+  const months = CONFIG.onboardingMonths - (s.flags.hiringWorkshop ? 1 : 0);
+  return s.month - person.since >= months;
+}
+
+function staffCount(s, role, onboardedOnly = false) {
+  return s.staff.filter((p) => p.role === role && (!onboardedOnly || isOnboarded(s, p))).length;
+}
+
+// Croissance du MRR sur les 3 derniers mois (0,5 = +50 %).
+export function mrrGrowth(s) {
+  const h = s.mrrHistory || [];
+  if (h.length < 2) return 0;
+  const old = h[Math.max(0, h.length - 4)];
+  return (s.mrr - old) / Math.max(old, 1000);
 }
 
 function findEvent(id, content) {
@@ -44,6 +62,21 @@ function findEvent(id, content) {
 
 export function currentEvent(s, content = DEFAULT_CONTENT) {
   return s.current ? findEvent(s.current.id, content) : null;
+}
+
+// Mentor qui parle ce mois-ci (Thomas et Robin se relaient).
+export function mentorOf(s) {
+  const id = s.current?.mentor;
+  return MENTORS.find((m) => m.id === id) || MENTORS[(s.mentorTurn || 0) % MENTORS.length];
+}
+
+export function speakerOf(s, event) {
+  if (!event?.speaker) return null;
+  if (event.speaker === 'mentor') {
+    const m = mentorOf(s);
+    return `${m.name}, ${m.role}`;
+  }
+  return fill(event.speaker, s);
 }
 
 // ---------------------------------------------------------------------------
@@ -66,20 +99,24 @@ export function meets(s, cond) {
     (cond.maxTeam === undefined || s.team <= cond.maxTeam) &&
     (cond.minStaff === undefined || s.staff.length >= cond.minStaff) &&
     (cond.maxStaff === undefined || s.staff.length <= cond.maxStaff) &&
+    (cond.minMonth === undefined || s.month >= cond.minMonth) &&
     (cond.role === undefined || staffCount(s, cond.role) > 0) &&
     (cond.noRole === undefined || staffCount(s, cond.noRole) === 0) &&
     (cond.market === undefined || [].concat(cond.market).includes(s.market)) &&
+    (cond.path === undefined || [].concat(cond.path).includes(s.path)) &&
     flags.every((f) => s.flags[f]) &&
     notFlags.every((f) => !s.flags[f])
   );
 }
 
-// chance = base + pmf x PMF + team x équipe + mrr x (MRR / 1000) + bonus marché + bonus flags
+// chance = base + pmf x PMF + team x équipe + mrr x (MRR / 1000) + growth x croissance du MRR
+//          + bonus marché + bonus flags
 export function chanceOf(s, spec) {
   let p = spec.base || 0;
   p += (spec.pmf || 0) * s.pmf;
   p += (spec.team || 0) * s.team;
-  p += (spec.mrr || 0) * (s.mrr / 1000);
+  p += (spec.mrr || 0) * Math.min(s.mrr / 1000, 15);
+  p += (spec.growth || 0) * clamp(mrrGrowth(s), 0, 2);
   p += (spec.market && spec.market[s.market]) || 0;
   for (const [flag, bonus] of Object.entries(spec.flags || {})) {
     if (s.flags[flag]) p += bonus;
@@ -124,6 +161,7 @@ function changeClients(s, n) {
   if (n > 0) {
     s.clients += n;
     s.mrr += n * s.arpu;
+    s.cash += n * (pathOf(s).setupFee || 0);
   } else if (n < 0 && s.clients > 0) {
     const lost = Math.min(s.clients, -n);
     s.mrr -= Math.round((s.mrr / s.clients) * lost);
@@ -176,34 +214,59 @@ function schedule(s, delayed, source) {
   }
 }
 
+// Jalons atteints depuis le dernier contrôle.
+function checkMilestones(s) {
+  const reached = [];
+  for (const m of MILESTONES) {
+    if (s.milestones.some((x) => x.id === m.id)) continue;
+    if (m.test(s)) {
+      s.milestones.push({ id: m.id, month: s.month });
+      reached.push(m.id);
+    }
+  }
+  return reached;
+}
+
 // ---------------------------------------------------------------------------
 // Clôture du mois : revenus, charges, croissance, churn, charge de l'équipe
+
+export function expectedGrowth(s) {
+  const span = CONFIG.pmfFull - CONFIG.pmfFloor;
+  const pmfFactor = Math.max(0, (s.pmf - CONFIG.pmfFloor) / span) ** CONFIG.pmfCurve;
+  const sales = staffCount(s, 'sales', true);
+  const boost = s.pmf >= CONFIG.salesPmfThreshold ? CONFIG.salesBoostWithPmf : CONFIG.salesBoostWithoutPmf;
+  const saturation = 1 / (1 + s.clients / CONFIG.saturationClients);
+  // Après une levée, le budget marketing du tour accélère l'acquisition.
+  const funded = s.flags.raised ? CONFIG.raisedGrowthBoost : 1;
+  return CONFIG.growthBase * pathOf(s).growth * pmfFactor * (1 + sales * boost) * CONFIG.marketGrowth[s.market] * saturation * funded;
+}
 
 export function closeMonth(s) {
   const revenue = s.mrr;
   const costs = s.costs;
   s.cash += revenue - costs;
 
-  const pmfFromDevs = staffCount(s, 'dev') * CONFIG.devPmfPerMonth;
+  const pmfFromDevs = staffCount(s, 'dev', true) * CONFIG.devPmfPerMonth;
   s.pmf = clamp(s.pmf + pmfFromDevs, 0, 100);
 
   // Clients perdus (calculés sur la base de clients du début de mois)
-  const churnRate = CONFIG.churn.find((c) => s.pmf < c.below).rate;
+  const churnRate = CONFIG.churn.find((c) => s.pmf < c.below).rate * pathOf(s).churn;
   const lostClients = Math.min(s.clients, randomRound(s, s.clients * churnRate));
   changeClients(s, -lostClients);
 
-  // Nouveaux clients
-  const sales = staffCount(s, 'sales');
-  const boost = s.pmf >= CONFIG.salesPmfThreshold ? CONFIG.salesBoostWithPmf : CONFIG.salesBoostWithoutPmf;
-  const expected = s.pmf * CONFIG.growthPerPmf * (1 + sales * boost) * CONFIG.marketGrowth[s.market];
-  const newClients = randomRound(s, expected);
+  // Nouveaux clients (et frais d'installation éventuels)
+  const cashBefore = s.cash;
+  const newClients = randomRound(s, expectedGrowth(s));
   changeClients(s, newClients);
+  const setupFees = s.cash - cashBefore;
 
-  // Charge de l'équipe
-  const load = s.clients / (headcount(s) * CONFIG.clientsPerPerson);
+  // Charge de l'équipe, et fatigue des intégrations en cours
+  const load = s.clients / (headcount(s) * (pathOf(s).clientsPerPerson || CONFIG.clientsPerPerson));
   let teamDelta = load < CONFIG.calmLoad ? CONFIG.teamRecovery : 0;
   if (load > CONFIG.heavyOverloadRatio) teamDelta = CONFIG.teamHeavyOverload;
   else if (load > 1) teamDelta = CONFIG.teamOverload;
+  const onboarding = s.staff.filter((p) => !isOnboarded(s, p)).length;
+  teamDelta -= Math.min(onboarding * CONFIG.onboardingTeamCost, 6);
   const teamBefore = s.team;
   s.team = clamp(s.team + teamDelta, 0, 100);
   if (load > 1) s.stats.overloadMonths += 1;
@@ -211,11 +274,12 @@ export function closeMonth(s) {
   // Rentabilité : les revenus couvrent les charges ET un salaire pour les fondateurs
   s.profitStreak = s.mrr >= breakEven(s) ? s.profitStreak + 1 : 0;
 
+  s.mrrHistory.push(s.mrr);
   s.stats.minCash = Math.min(s.stats.minCash, s.cash);
   s.stats.peakCosts = Math.max(s.stats.peakCosts, s.costs);
   s.stats.peakMrr = Math.max(s.stats.peakMrr, s.mrr);
 
-  return { revenue, costs, newClients, lostClients, teamDelta: s.team - teamBefore };
+  return { revenue, costs, newClients, lostClients, setupFees, onboarding, teamDelta: s.team - teamBefore };
 }
 
 // ---------------------------------------------------------------------------
@@ -229,6 +293,16 @@ function pickWeighted(s, items, weightOf) {
     if (r <= 0) return it;
   }
   return items[items.length - 1];
+}
+
+function weightOf(s, e) {
+  const w = e.weight ?? 1;
+  const base = typeof w === 'object' ? (w[s.path] ?? w.default ?? 1) : w;
+  return base * (e.category === s.lastCategory ? 0.3 : 1);
+}
+
+export function inPath(s, e) {
+  return !e.paths || e.paths.includes(s.path);
 }
 
 function selectEvent(s, content, forcedId) {
@@ -250,6 +324,8 @@ function selectEvent(s, content, forcedId) {
     (e) =>
       !e.urgent &&
       !e.fallback &&
+      !e.start &&
+      inPath(s, e) &&
       s.month >= e.months[0] &&
       s.month <= e.months[1] &&
       !s.seen.includes(e.id) &&
@@ -259,8 +335,20 @@ function selectEvent(s, content, forcedId) {
     const fallback = content.events.find((e) => e.fallback);
     return { id: fallback.id, kind: 'fallback' };
   }
-  const picked = pickWeighted(s, pool, (e) => (e.weight ?? 1) * (e.category === s.lastCategory ? 0.3 : 1));
+  const picked = pickWeighted(s, pool, (e) => weightOf(s, e));
   return { id: picked.id, kind: 'event' };
+}
+
+// Prépare l'événement choisi : mentor du mois, conseil pas encore demandé.
+function setCurrent(s, current, content) {
+  const ev = findEvent(current.id, content);
+  s.current = current;
+  if (ev.speaker === 'mentor') {
+    s.current.mentor = MENTORS[s.mentorTurn % MENTORS.length].id;
+    s.mentorTurn += 1;
+  }
+  if (current.kind === 'event') s.seen.push(ev.id);
+  s.lastCategory = ev.category;
 }
 
 function changeMarket(s, content) {
@@ -276,12 +364,16 @@ function changeMarket(s, content) {
 // ---------------------------------------------------------------------------
 // API publique
 
-export function newGame(seed = Date.now(), content = DEFAULT_CONTENT) {
-  const st = CONFIG.start;
+export function newGame(seed = Date.now(), content = DEFAULT_CONTENT, options = {}) {
+  const path = PATHS[options.path] || PATHS.saas;
+  const st = { ...CONFIG.start, ...path.start };
+  const name = (options.name || '').trim().slice(0, 24) || path.defaultName;
   const s = {
     version: SAVE_VERSION,
     seed,
     rng: seed >>> 0,
+    path: path.id,
+    name,
     month: 1,
     phase: 'event',
     cash: st.cash,
@@ -300,18 +392,38 @@ export function newGame(seed = Date.now(), content = DEFAULT_CONTENT) {
     seen: [],
     pending: [],
     notices: [],
+    celebrate: [],
+    milestones: [],
+    lessons: [],
+    mentorTurn: 0,
+    adviceLeft: ADVICE_PER_RUN,
     current: null,
     lastCategory: null,
     result: null,
     ending: null,
     profitStreak: 0,
+    mrrHistory: [],
     history: [],
     stats: { hires: [], overloadMonths: 0, minCash: st.cash, peakCosts: st.costs, peakMrr: 0, spent: {} },
   };
-  const first = content.events.find((e) => e.id === 'interviews');
-  s.current = { id: first.id, kind: 'event' };
-  s.seen.push(first.id);
-  s.lastCategory = first.category;
+  const first = findEvent(path.first, content) || findEvent('interviews', content);
+  setCurrent(s, { id: first.id, kind: 'event' }, content);
+  return s;
+}
+
+// Conseil d'un mentor : une piste de réflexion, jamais la réponse. Deux par run.
+export function adviceFor(s, content = DEFAULT_CONTENT) {
+  const ev = currentEvent(s, content);
+  if (ev?.advice) return fill(ev.advice, s);
+  return GENERIC_ADVICE.find((a) => a.test(s, runway(s))).text;
+}
+
+export function askAdvice(state, content = DEFAULT_CONTENT) {
+  if (state.phase !== 'event' || state.adviceLeft <= 0 || state.current.advice) return state;
+  const s = structuredClone(state);
+  const mentor = s.current.mentor ? mentorOf(s) : MENTORS[(s.adviceLeft + s.month) % MENTORS.length];
+  s.current.advice = { mentor: mentor.id, text: adviceFor(s, content) };
+  s.adviceLeft -= 1;
   return s;
 }
 
@@ -337,14 +449,25 @@ export function chooseOption(state, index, content = DEFAULT_CONTENT) {
   s.history.push({
     month: s.month,
     eventId: event.id,
-    title: event.title,
-    choice: choice.label,
+    title: fill(event.title, s),
+    choice: fill(choice.label, s),
     tags: choice.tags || [],
     delta: choiceDelta,
     hire: Boolean(choice.effects?.hire || outcome.effects?.hire),
   });
 
-  const text = outcome.text || choice.text || '';
+  // « À retenir » : rare, jamais deux mois de suite.
+  let lesson = null;
+  const lastLesson = s.lessons[s.lessons.length - 1];
+  const lessonText = outcome.lesson || choice.lesson;
+  if (lessonText && s.lessons.length < CONFIG.maxLessons && (lastLesson === undefined || s.month - lastLesson > 1)) {
+    lesson = fill(lessonText, s);
+    s.lessons.push(s.month);
+  }
+
+  const text = fill(outcome.text || choice.text || '', s);
+  // Jalons atteints par le choix lui-même (avant le churn de fin de mois).
+  const reachedByChoice = checkMilestones(s);
   let report = null;
   if (outcome.end || choice.end) {
     s.ending = { type: outcome.end || choice.end };
@@ -359,8 +482,10 @@ export function chooseOption(state, index, content = DEFAULT_CONTENT) {
     else if (s.month >= CONFIG.months) s.ending = { type: 'final' };
   }
 
-  s.result = { choiceLabel: choice.label, text, delta: choiceDelta, report };
   s.phase = 'result';
+  const dead = s.ending && s.ending.type !== 'final' && s.ending.type !== 'exit';
+  const milestones = [...reachedByChoice, ...(dead ? [] : checkMilestones(s))];
+  s.result = { choiceLabel: fill(choice.label, s), text, delta: choiceDelta, report, lesson, milestones };
   return s;
 }
 
@@ -375,6 +500,7 @@ export function nextMonth(state, content = DEFAULT_CONTENT) {
 
   s.month += 1;
   s.notices = [];
+  s.celebrate = [];
   s.result = null;
   if (s.news) s.news.fresh = false;
 
@@ -394,7 +520,9 @@ export function nextMonth(state, content = DEFAULT_CONTENT) {
     const outcome = pickOutcome(s, cb.outcomes || []);
     applyEffects(s, outcome.effects);
     schedule(s, outcome.delayed, cb.id);
-    s.notices.push({ id: cb.id, title: cb.title, text: outcome.text || '', delta: diff(before, s), tone: outcome.tone });
+    if (outcome.text !== '') {
+      s.notices.push({ id: cb.id, title: fill(cb.title, s), text: fill(outcome.text || '', s), delta: diff(before, s), tone: outcome.tone });
+    }
     if (outcome.trigger) {
       if (forcedId) s.pending.push({ due: s.month + 1, id: outcome.trigger, source: cb.id });
       else forcedId = outcome.trigger;
@@ -407,12 +535,10 @@ export function nextMonth(state, content = DEFAULT_CONTENT) {
     return s;
   }
 
-  changeMarket(s, content);
-
-  s.current = selectEvent(s, content, forcedId);
-  const ev = findEvent(s.current.id, content);
-  if (s.current.kind === 'event') s.seen.push(ev.id);
-  s.lastCategory = ev.category;
   s.phase = 'event';
+  s.celebrate = checkMilestones(s);
+
+  changeMarket(s, content);
+  setCurrent(s, selectEvent(s, content, forcedId), content);
   return s;
 }

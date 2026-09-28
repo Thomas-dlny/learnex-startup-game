@@ -1,5 +1,6 @@
-import { eur, signedEur, signed, runwayLabel } from '../game/format.js';
+import { eur, signedEur, signed, runwayLabel, zeroCashMonth } from '../game/format.js';
 import { netBurn, runway, breakEven } from '../game/engine.js';
+import StartupTerm from './StartupTerm.jsx';
 
 function Segments({ value, tone }) {
   const filled = Math.round(value / 10);
@@ -17,10 +18,15 @@ function Delta({ value, money }) {
   return <span className={`hud-delta ${value > 0 ? 'up' : 'down'}`}>{money ? signedEur(value) : signed(value)}</span>;
 }
 
-// Panneau de bord : les 5 indicateurs principaux + une ligne secondaire.
+// Panneau de bord : 5 indicateurs principaux, puis 4 indicateurs secondaires plus compacts.
 export default function Hud({ state }) {
   const r = runway(state);
-  const showHelp = state.month === 1 && state.phase === 'event';
+  const burn = netBurn(state);
+  const firstOpen = state.phase === 'event' ? state.month : state.month + 1;
+  const zero = zeroCashMonth(state, firstOpen);
+  const threshold = breakEven(state);
+  const progress = Math.min(1, state.mrr / threshold);
+
   // En phase résultat, on montre ce qui a bougé ce mois-ci.
   const d = {};
   if (state.phase !== 'event' && state.result) {
@@ -29,27 +35,30 @@ export default function Hud({ state }) {
     }
   }
 
+  let zeroLine = null;
+  if (zero !== null && zero <= 18) {
+    zeroLine = zero <= firstOpen ? '0 € ce mois-ci' : `0 € au mois ${zero}`;
+  }
+
   const cells = [
     {
       key: 'cash',
-      label: 'Cash',
-      help: 'L’argent sur ton compte. Sous 0 €, c’est fini.',
+      label: <StartupTerm term="Cash" />,
       value: eur(state.cash),
       delta: <Delta value={d.cash} money />,
       danger: state.cash < 3000,
     },
     {
       key: 'runway',
-      label: 'Runway',
-      help: 'Mois restants avant 0 €, si rien ne change.',
+      label: <StartupTerm term="Runway" />,
       value: runwayLabel(r),
+      extra: zeroLine && <span className={`hud-zero${r < 4 ? ' is-danger' : ''}`}>{zeroLine}</span>,
       danger: r < 3,
       good: r === Infinity,
     },
     {
       key: 'mrr',
-      label: 'MRR',
-      help: 'Revenus qui tombent chaque mois (abonnements).',
+      label: <StartupTerm term="MRR" />,
       value: (
         <>
           {eur(state.mrr)}
@@ -61,7 +70,6 @@ export default function Hud({ state }) {
     {
       key: 'team',
       label: 'Équipe',
-      help: 'Moral et énergie. À 0, l’équipe lâche.',
       value: (
         <>
           {state.team}
@@ -74,8 +82,7 @@ export default function Hud({ state }) {
     },
     {
       key: 'pmf',
-      label: 'PMF',
-      help: 'Product-Market Fit : à quel point ton marché veut ton produit.',
+      label: <StartupTerm term="PMF" />,
       value: (
         <>
           {state.pmf}
@@ -91,34 +98,56 @@ export default function Hud({ state }) {
     <section className="hud" aria-label="Indicateurs de ta startup">
       <dl className="hud-main">
         {cells.map((c) => (
-          <div key={c.key} className={`hud-cell hud-${c.key}${c.danger ? ' is-danger' : ''}${c.good ? ' is-good' : ''}`} title={c.help}>
+          <div key={c.key} data-tuto={c.key} className={`hud-cell hud-${c.key}${c.danger ? ' is-danger' : ''}${c.good ? ' is-good' : ''}`}>
             <dt>{c.label}</dt>
             <dd>
               <span className="hud-value">{c.value}</span>
+              {c.extra}
               {c.gauge}
               {c.delta}
-              {showHelp && <span className="hud-help">{c.help}</span>}
             </dd>
           </div>
         ))}
       </dl>
-      <p className="hud-sub">
-        <span>
-          Clients <strong>{state.clients}</strong>
-          {d.clients ? <Delta value={d.clients} /> : null}
-        </span>
-        <span>
-          Charges <strong>{eur(state.costs)}/mois</strong>
-        </span>
-        <span>
-          Burn net <strong>{netBurn(state) === 0 ? 'aucun' : `${eur(netBurn(state))}/mois`}</strong>
-        </span>
-        <span title="MRR à atteindre pour payer tes charges et un salaire aux deux fondateurs.">
-          Seuil de rentabilité{' '}
-          <strong className={state.mrr >= breakEven(state) ? 'is-reached' : ''}>{eur(breakEven(state))} de MRR</strong>
-          {!state.flags.foundersPaid && <em> salaires fondateurs compris</em>}
-        </span>
-      </p>
+      <dl className="hud-sub">
+        <div data-tuto="clients">
+          <dt>Clients</dt>
+          <dd>
+            {state.clients}
+            <Delta value={d.clients} />
+          </dd>
+        </div>
+        <div>
+          <dt>
+            <StartupTerm term="Charges" />
+          </dt>
+          <dd>
+            {eur(state.costs)}
+            <small>/mois</small>
+          </dd>
+        </div>
+        <div data-tuto="burn" className={burn > 0 ? 'is-burning' : 'is-clear'}>
+          <dt>
+            <StartupTerm term="Burn">Burn net</StartupTerm>
+          </dt>
+          <dd>
+            {burn === 0 ? 'Aucun' : eur(burn)}
+            {burn > 0 && <small>/mois</small>}
+          </dd>
+        </div>
+        <div className={progress >= 1 ? 'is-reached' : ''}>
+          <dt>
+            <StartupTerm term="Seuil de rentabilité" />
+          </dt>
+          <dd>
+            {eur(threshold)}
+            <small> de MRR</small>
+          </dd>
+          <span className="hud-progress" aria-hidden="true">
+            <span style={{ width: `${Math.round(progress * 100)}%` }} />
+          </span>
+        </div>
+      </dl>
     </section>
   );
 }
