@@ -1,11 +1,11 @@
-# Startup Incubation Game : game design (MVP)
+# The Runway Game : game design (MVP)
 
 Source de vérité produit : skill `startup-incubation-game`. Ce document fige les choix du MVP.
 Date : 2026-09-24.
 
 ## 1. Intention
 
-Jeu web court (5 à 10 min), die and retry, pour des participants Learnex qui ne connaissent pas le monde des startups.
+Jeu web court (5 à 10 min), die and retry, pour des participants qui ne connaissent pas le monde des startups.
 Le joueur dirige une startup incubée chez EDHEC Entrepreneurs pendant 18 mois.
 Il apprend par les conséquences : cash, burn, runway, premiers clients, PMF, arbitrages, effets différés.
 

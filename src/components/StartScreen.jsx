@@ -72,8 +72,8 @@ export default function StartScreen({ records, saved, onStart, onResume }) {
   return (
     <main className="start">
       <form className="start-panel" onSubmit={submit}>
-        <p className="start-kicker">Une Learnex EDHEC Entrepreneurs</p>
-        <h1 className="start-title">Startup Incubation Game</h1>
+        <p className="start-kicker">EDHEC Entrepreneurs</p>
+        <h1 className="start-title">The Runway Game</h1>
         <p className="start-lede">
           Tu entres en incubation chez EDHEC Entrepreneurs. 18 mois pour transformer un{' '}
           <StartupTerm term="MVP" /> en entreprise qui tient debout. Deux fondateurs, peu de cash, beaucoup de décisions.
