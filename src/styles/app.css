@@ -428,6 +428,27 @@ button {
 .hud-zero.is-danger {
   color: var(--bad);
 }
+.hud-surplus {
+  color: var(--good);
+  font-size: 14px;
+  font-weight: 700;
+}
+.hud-delta small {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.deltas-label {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.deltas-label + .deltas {
+  margin-top: 6px;
+}
 .segments {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
@@ -944,9 +965,23 @@ button {
 .ledger-line .bad {
   color: var(--bad);
 }
+.nowrap {
+  white-space: nowrap;
+}
+.ledger h3 {
+  margin: 14px 0 4px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ledger h2 + h3 {
+  margin-top: 4px;
+}
 .ledger-line.is-total {
-  margin-top: 8px;
-  padding-top: 10px;
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid var(--rule);
 }
 .ledger-line.is-total dt {
@@ -956,7 +991,7 @@ button {
 .ledger-line.is-total dd {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: 24px;
+  font-size: 21px;
 }
 .result-ending {
   margin-top: 22px;

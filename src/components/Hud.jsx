@@ -15,7 +15,12 @@ function Segments({ value, tone }) {
 
 function Delta({ value, money }) {
   if (!value) return null;
-  return <span className={`hud-delta ${value > 0 ? 'up' : 'down'}`}>{money ? signedEur(value) : signed(value)}</span>;
+  // Total du mois : effet du choix + bilan de fin de mois.
+  return (
+    <span className={`hud-delta ${value > 0 ? 'up' : 'down'}`}>
+      {money ? signedEur(value) : signed(value)} <small>ce mois</small>
+    </span>
+  );
 }
 
 // Panneau de bord : 5 indicateurs principaux, puis 4 indicateurs secondaires plus compacts.
@@ -35,6 +40,8 @@ export default function Hud({ state }) {
     }
   }
 
+  // Revenus au-dessus des charges : le cash monte, on le dit.
+  const surplus = state.mrr - state.costs;
   let zeroLine = null;
   if (zero !== null && zero <= 18) {
     zeroLine = zero <= firstOpen ? '0 € ce mois-ci' : `0 € au mois ${zero}`;
@@ -51,8 +58,12 @@ export default function Hud({ state }) {
     {
       key: 'runway',
       label: <StartupTerm term="Runway" />,
-      value: runwayLabel(r),
-      extra: zeroLine && <span className={`hud-zero${r < 4 ? ' is-danger' : ''}`}>{zeroLine}</span>,
+      value: surplus > 0 ? 'Cash en hausse' : runwayLabel(r),
+      extra: surplus > 0 ? (
+        <span className="hud-surplus">{signedEur(surplus)}/mois</span>
+      ) : (
+        zeroLine && <span className={`hud-zero${r < 4 ? ' is-danger' : ''}`}>{zeroLine}</span>
+      ),
       danger: r < 3,
       good: r === Infinity,
     },
