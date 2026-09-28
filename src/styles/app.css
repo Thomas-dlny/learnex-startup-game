@@ -965,9 +965,23 @@ button {
 .ledger-line .bad {
   color: var(--bad);
 }
+.nowrap {
+  white-space: nowrap;
+}
+.ledger h3 {
+  margin: 14px 0 4px;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.ledger h2 + h3 {
+  margin-top: 4px;
+}
 .ledger-line.is-total {
-  margin-top: 8px;
-  padding-top: 10px;
+  margin-top: 4px;
+  padding-top: 6px;
   border-top: 1px solid var(--rule);
 }
 .ledger-line.is-total dt {
@@ -977,7 +991,7 @@ button {
 .ledger-line.is-total dd {
   font-family: var(--serif);
   font-weight: 400;
-  font-size: 24px;
+  font-size: 21px;
 }
 .result-ending {
   margin-top: 22px;
