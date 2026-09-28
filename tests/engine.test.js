@@ -354,6 +354,23 @@ describe('failure and safety nets', () => {
     expect(s.ending.type).toBe('team');
   });
 
+  it('counts the 18 months as done even if the team collapses on the last close', () => {
+    const c = content();
+    let s = { ...newGame(1, c), cash: 1e7 };
+    for (let i = 0; i < 17; i++) s = playMonth(s, c);
+    expect(s.month).toBe(18);
+    s = { ...s, team: 1, staff: [{ role: 'sales', label: 'A', cost: 3000, since: 18 }, { role: 'dev', label: 'B', cost: 3000, since: 18 }] };
+    s = chooseOption(s, 0, c);
+    expect(s.team).toBe(0);
+    expect(s.ending.type).toBe('final');
+  });
+
+  it('still ends the run when the team collapses before the last month', () => {
+    const c = content();
+    const s = chooseOption({ ...newGame(1, c), team: 1, staff: [{ role: 'sales', label: 'A', cost: 100, since: 1 }, { role: 'dev', label: 'B', cost: 100, since: 1 }] }, 0, c);
+    expect(s.ending.type).toBe('team');
+  });
+
   it('raises a runway alert when less than 2 months remain', () => {
     const c = content();
     const s = nextMonth(chooseOption({ ...newGame(1, c), cash: 5000, costs: 2000 }, 0, c), c);

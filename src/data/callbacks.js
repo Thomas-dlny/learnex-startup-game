@@ -442,7 +442,7 @@ export const CALLBACKS = [
     choices: [
       {
         label: 'Signer',
-        hints: ['Runway énorme', '20 % de capital cédé', 'Pression pour recruter et grandir'],
+        hints: ['Runway énorme', '20 % de capital cédé', '4 recrues à intégrer : grosse fatigue'],
         tags: ['fundraise'],
         effects: { cash: 800000, equity: -20, flags: { raised: true, fundraising: false }, hire: SEED_HIRES },
         delayed: [{ in: 4, id: 'board-pressure' }],
@@ -719,7 +719,7 @@ export const CALLBACKS = [
     choices: [
       {
         label: 'Signer',
-        hints: ['Runway énorme', '25 % de capital cédé', 'Recrutements imposés'],
+        hints: ['Runway énorme', '25 % de capital cédé', '3 recrues à intégrer : grosse fatigue'],
         tags: ['fundraise'],
         effects: { cash: 1500000, equity: -25, flags: { raised: true, fundraising: false }, hire: DEEP_HIRES },
         delayed: [{ in: 4, id: 'board-pressure' }],
