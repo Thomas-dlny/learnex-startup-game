@@ -1,4 +1,26 @@
 import { eur } from '../game/format.js';
+import { ENDINGS, headlineOf } from '../game/endings.js';
+import { PATHS } from '../data/paths.js';
+
+// Transforme une run de l'historique (localStorage) en données de carte.
+// Les runs des anciennes versions n'ont ni nom ni parcours : on retombe sur SaaS et Glane.
+export function cardFromRun(run) {
+  const path = PATHS[run.path] || PATHS.saas;
+  const name = run.name || path.defaultName;
+  const stats = { clients: 0, mrr: 0, pmf: 0, ...run.stats };
+  const ending = ENDINGS[run.type] || ENDINGS.cash;
+  return {
+    runNumber: run.runNumber,
+    pathLabel: run.pathLabel || path.label,
+    name,
+    ending,
+    positive: ending.positive,
+    monthsSurvived: run.monthsSurvived,
+    stats,
+    profile: { name: run.profile?.name || 'L’Équilibriste' },
+    headline: run.headline || headlineOf({ name, month: run.monthsSurvived, team: stats.team ?? 50, flags: {}, path: path.id }, run.type),
+  };
+}
 
 // Texte copié dans le presse-papier, à coller dans une conversation.
 export function shareText(recap) {

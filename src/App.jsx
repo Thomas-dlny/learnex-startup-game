@@ -123,7 +123,9 @@ export default function App() {
         stats: r.stats,
         profile: { id: r.profile.id, name: r.profile.name },
         path: r.path,
+        pathLabel: r.pathLabel,
         name: r.name,
+        headline: r.headline,
         milestones: r.milestoneIds,
       };
       setRecords(storage.saveRun(summary, records));
