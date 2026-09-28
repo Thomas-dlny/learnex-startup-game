@@ -428,6 +428,27 @@ button {
 .hud-zero.is-danger {
   color: var(--bad);
 }
+.hud-surplus {
+  color: var(--good);
+  font-size: 14px;
+  font-weight: 700;
+}
+.hud-delta small {
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.8;
+}
+.deltas-label {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.deltas-label + .deltas {
+  margin-top: 6px;
+}
 .segments {
   display: grid;
   grid-template-columns: repeat(10, 1fr);

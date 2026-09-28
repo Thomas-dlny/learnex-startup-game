@@ -261,7 +261,8 @@ export function closeMonth(s) {
   const setupFees = s.cash - cashBefore;
 
   // Charge de l'équipe, et fatigue des intégrations en cours
-  const load = s.clients / (headcount(s) * (pathOf(s).clientsPerPerson || CONFIG.clientsPerPerson));
+  const capacity = headcount(s) * (pathOf(s).clientsPerPerson || CONFIG.clientsPerPerson);
+  const load = s.clients / capacity;
   let teamDelta = load < CONFIG.calmLoad ? CONFIG.teamRecovery : 0;
   if (load > CONFIG.heavyOverloadRatio) teamDelta = CONFIG.teamHeavyOverload;
   else if (load > 1) teamDelta = CONFIG.teamOverload;
@@ -279,7 +280,7 @@ export function closeMonth(s) {
   s.stats.peakCosts = Math.max(s.stats.peakCosts, s.costs);
   s.stats.peakMrr = Math.max(s.stats.peakMrr, s.mrr);
 
-  return { revenue, costs, newClients, lostClients, setupFees, onboarding, teamDelta: s.team - teamBefore };
+  return { revenue, costs, newClients, lostClients, setupFees, onboarding, clients: s.clients, capacity, load, teamDelta: s.team - teamBefore };
 }
 
 // ---------------------------------------------------------------------------

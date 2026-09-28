@@ -3,6 +3,7 @@ import Deltas from './Deltas.jsx';
 import { Celebrations } from './EventCard.jsx';
 import { Rich } from './StartupTerm.jsx';
 import { eur, signedEur, signed, fr } from '../game/format.js';
+import { CONFIG } from '../game/config.js';
 
 function Line({ label, value, tone, total }) {
   return (
@@ -11,6 +12,17 @@ function Line({ label, value, tone, total }) {
       <dd className={tone}>{value}</dd>
     </div>
   );
+}
+
+// Explique pourquoi l'énergie de l'équipe bouge en fin de mois.
+function teamLabel(report) {
+  if (report.load === undefined) return 'Énergie de l’équipe';
+  const charge = `${report.clients} clients pour ${report.capacity} de capacité`;
+  if (report.load > CONFIG.heavyOverloadRatio) return `Énergie de l’équipe (forte surcharge : ${charge})`;
+  if (report.load > 1) return `Énergie de l’équipe (surcharge : ${charge})`;
+  if (report.onboarding > 0) return 'Énergie de l’équipe (intégration des recrues)';
+  if (report.load < CONFIG.calmLoad) return 'Énergie de l’équipe (charge légère, elle récupère)';
+  return 'Énergie de l’équipe';
 }
 
 const ENDING_LINES = {
@@ -32,6 +44,7 @@ export default function ResultCard({ state, onNext }) {
       <p className="result-choice">
         Ton choix <strong>{fr(result.choiceLabel)}</strong>
       </p>
+      {Object.keys(result.delta || {}).length > 0 && <p className="deltas-label">Effet de ton choix</p>}
       <Deltas delta={result.delta} />
       {result.text && (
         <p className="result-text">
@@ -63,7 +76,7 @@ export default function ResultCard({ state, onNext }) {
             {report.onboarding > 0 && (
               <Line label={`Recrue${report.onboarding > 1 ? 's' : ''} en intégration`} value={report.onboarding} tone="" />
             )}
-            <Line label="Énergie de l’équipe" value={signed(report.teamDelta)} tone={report.teamDelta > 0 ? 'good' : report.teamDelta < 0 ? 'bad' : ''} />
+            <Line label={teamLabel(report)} value={signed(report.teamDelta)} tone={report.teamDelta > 0 ? 'good' : report.teamDelta < 0 ? 'bad' : ''} />
             <Line total label="Cash en fin de mois" value={eur(state.cash)} tone={state.cash < 0 ? 'bad' : ''} />
           </dl>
         </section>
